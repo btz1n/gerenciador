@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card">
+  <div class="row between">
+    <div class="h3">Pedidos</div>
+    <a class="btn primary" href="/orders/new">+ Novo pedido</a>
+  </div>
+
+  <div class="table-wrap" style="margin-top:10px;">
+    <table class="table">
+      <thead>
+        <tr><th>ID</th><th>Cliente</th><th>Status</th><th>Total</th><th>Ações</th></tr>
+      </thead>
+      <tbody>
+      {% for o in orders %}
+        <tr>
+          <td>#{{ o.id }}</td>
+          <td>{{ o.customer_name or "-" }}</td>
+          <td><span class="badge">{{ o.status }}</span></td>
+          <td>R$ {{ "%.2f"|format(o.total) }}</td>
+          <td>
+            <form method="post" action="/orders/{{ o.id }}/status" class="row gap">
+              <select class="input" name="status" style="padding:10px;">
+                <option value="novo" {% if o.status=='novo' %}selected{% endif %}>novo</option>
+                <option value="separando" {% if o.status=='separando' %}selected{% endif %}>separando</option>
+                <option value="saiu" {% if o.status=='saiu' %}selected{% endif %}>saiu</option>
+                <option value="entregue" {% if o.status=='entregue' %}selected{% endif %}>entregue</option>
+                <option value="cancelado" {% if o.status=='cancelado' %}selected{% endif %}>cancelado</option>
+              </select>
+              <button class="btn" type="submit">Atualizar</button>
+            </form>
+            <div class="muted" style="margin-top:6px;">
+              Se marcar <b>entregue</b>, vira venda automaticamente.
+            </div>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5" class="muted">Sem pedidos.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

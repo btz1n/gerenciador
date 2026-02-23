@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card">
+  <div class="row between">
+    <div class="h3">Novo pedido</div>
+    <a class="link" href="/orders">Voltar</a>
+  </div>
+
+  <form method="post" action="/orders/create" style="margin-top:10px;">
+    <label class="label">Cliente (opcional)</label>
+    <input class="input" name="customer_name" list="customers_list" placeholder="Digite ou selecione">
+    <datalist id="customers_list">
+      {% for c in customers %}
+      <option value="{{ c.name }}"></option>
+      {% endfor %}
+    </datalist>
+
+    <div style="height:12px;"></div>
+
+    <div class="h3">Itens</div>
+    <div id="items"></div>
+
+    <div class="row gap" style="margin-top:10px;">
+      <button class="btn" type="button" onclick="addRow()">+ Adicionar item</button>
+      <button class="btn primary" type="submit">Salvar pedido</button>
+    </div>
+
+    <div class="muted" style="margin-top:8px;">
+      Dica: coloque preço na hora (ou deixe 0 e ajuste depois).
+    </div>
+  </form>
+</div>
+
+<script>
+const products = [{% for p in products %}"{{ p.name|replace('"','') }}",{% endfor %}];
+
+function rowTemplate(){
+  const opts = products.map(n => `<option value="${n}"></option>`).join('');
+  return `
+  <div class="row gap item-row">
+    <div style="flex:2;">
+      <label class="label">Produto</label>
+      <input class="input" name="item_name" list="plist" placeholder="Digite o nome">
+    </div>
+    <div style="flex:1;">
+      <label class="label">Qtd</label>
+      <input class="input" name="item_qty" type="number" step="1" value="1">
+    </div>
+    <div style="flex:1;">
+      <label class="label">Preço</label>
+      <input class="input" name="item_price" type="number" step="0.01" value="0">
+    </div>
+    <div>
+      <label class="label">&nbsp;</label>
+      <button class="btn" type="button" onclick="this.closest('.item-row').remove()">Remover</button>
+    </div>
+    <datalist id="plist">${opts}</datalist>
+  </div>`;
+}
+
+function addRow(){
+  document.getElementById('items').insertAdjacentHTML('beforeend', rowTemplate());
+}
+
+addRow(); addRow();
+</script>
+
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block public %}
+<h2 class="h2">Entrar</h2>
+<p class="muted">Use o nome da loja + usuário + senha.</p>
+
+<form method="post" action="/login" class="form">
+  <label class="label">Nome da Loja</label>
+  <input class="input" name="store_name" required placeholder="ex: Depósito do Gabriel">
+
+  <label class="label">Usuário</label>
+  <input class="input" name="username" required placeholder="ex: admin">
+
+  <label class="label">Senha</label>
+  <input class="input" name="password" type="password" required placeholder="••••••••">
+
+  <button class="btn primary full" type="submit">Entrar</button>
+
+  <div class="links">
+    <a href="/admin/setup">Criar primeira loja</a>
+    <span>·</span>
+    <a href="/debug/last_error" target="_blank">Debug</a>
+  </div>
+</form>
+{% endblock %}

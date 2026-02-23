@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title or "IMPÉRIO - Sistema" }}</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+
+{% if user %}
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <div class="brand-title">IMPÉRIO</div>
+          <div class="brand-sub">{{ user.store_name }}</div>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <a href="/dashboard">Dashboard</a>
+        <a href="/orders">Pedidos</a>
+        <a href="/sales">Vendas</a>
+        <a href="/products">Produtos</a>
+        <a href="/customers">Clientes</a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="muted">Logado como <b>{{ user.username }}</b></div>
+        <a class="link" href="/logout">Sair</a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <div class="kicker">{{ kicker or "" }}</div>
+          <div class="page-title">{{ page_title or "" }}</div>
+        </div>
+        <div class="actions">
+          <a class="btn" href="/sales/new">+ Nova venda</a>
+          <a class="btn primary" href="/orders/new">+ Novo pedido</a>
+        </div>
+      </div>
+
+      {% if error %}
+        <div class="alert error">{{ error }}</div>
+      {% endif %}
+
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+{% else %}
+  <div class="public-wrap">
+    <div class="public-card">
+      {% if error %}
+        <div class="alert error">{{ error }}</div>
+      {% endif %}
+      {% block public %}{% endblock %}
+    </div>
+  </div>
+{% endif %}
+
+</body>
+</html>

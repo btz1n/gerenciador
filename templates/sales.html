@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card">
+  <div class="row between">
+    <div class="h3">Vendas</div>
+    <a class="btn primary" href="/sales/new">+ Nova venda</a>
+  </div>
+
+  <div class="table-wrap" style="margin-top:10px;">
+    <table class="table">
+      <thead><tr><th>ID</th><th>Cliente</th><th>Status</th><th>Total</th><th>Data</th></tr></thead>
+      <tbody>
+      {% for s in sales %}
+        <tr>
+          <td>#{{ s.id }}</td>
+          <td>{{ s.customer_name or "-" }}</td>
+          <td><span class="badge ok">{{ s.status }}</span></td>
+          <td>R$ {{ "%.2f"|format(s.total) }}</td>
+          <td class="muted">{{ s.created_at }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5" class="muted">Sem vendas.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

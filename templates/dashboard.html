@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="grid4">
+  <div class="card">
+    <div class="muted">Vendas hoje</div>
+    <div class="big">R$ {{ "%.2f"|format(stats.sales_today_value) }}</div>
+    <div class="muted">{{ stats.sales_today_count }} vendas</div>
+  </div>
+  <div class="card">
+    <div class="muted">Vendas no mês</div>
+    <div class="big">R$ {{ "%.2f"|format(stats.sales_month_value) }}</div>
+    <div class="muted">total do mês</div>
+  </div>
+  <div class="card">
+    <div class="muted">Pedidos pendentes</div>
+    <div class="big">{{ stats.pending_orders }}</div>
+    <div class="muted">novo / separando / saiu</div>
+  </div>
+  <div class="card">
+    <div class="muted">Estoque baixo</div>
+    <div class="big">{{ stats.low_stock }}</div>
+    <div class="muted">≤ 3 unidades</div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:12px;">
+  <div class="row between">
+    <div class="h3">Últimas vendas</div>
+    <a class="link" href="/sales">ver todas</a>
+  </div>
+
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr><th>ID</th><th>Cliente</th><th>Data</th><th>Total</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+      {% for s in last_sales %}
+        <tr>
+          <td>#{{ s.id }}</td>
+          <td>{{ s.customer_name or "-" }}</td>
+          <td class="muted">{{ s.created_at }}</td>
+          <td>R$ {{ "%.2f"|format(s.total) }}</td>
+          <td><span class="badge ok">{{ s.status }}</span></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5" class="muted">Sem vendas.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
