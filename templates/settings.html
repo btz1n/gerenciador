@@ -10,10 +10,58 @@
       <input name="product_name" value="{{ (branding.product_name if branding else 'IMPÉRIO') }}" required>
 
       <label>Cor primária</label>
-      <input name="primary_color" value="{{ (branding.primary_color if branding else '#2f6bff') }}">
+      <input type="color" name="primary_color" value="{{ (branding.primary_color if branding else '#2f6bff') }}">
 
       <label>Cor secundária</label>
-      <input name="secondary_color" value="{{ (branding.secondary_color if branding else '#9a7bff') }}">
+      <input type="color" name="secondary_color" value="{{ (branding.secondary_color if branding else '#9a7bff') }}">
+
+      <div style="height:10px;"></div>
+      <div class="h3" style="margin:0;">Temas prontos</div>
+      <div class="muted" style="margin-top:4px;">Clique em um tema para aplicar automaticamente (cor primária + secundária). Você ainda pode ajustar depois.</div>
+
+      <div class="theme-presets" style="margin-top:10px;">
+        <button class="theme-card" type="button" data-primary="#2f6bff" data-secondary="#9a7bff">
+          <span class="sw" style="background:#2f6bff"></span>
+          <span class="sw" style="background:#9a7bff"></span>
+          <span class="t">Império Azul</span>
+        </button>
+
+        <button class="theme-card" type="button" data-primary="#16a34a" data-secondary="#22c55e">
+          <span class="sw" style="background:#16a34a"></span>
+          <span class="sw" style="background:#22c55e"></span>
+          <span class="t">Verde Market</span>
+        </button>
+
+        <button class="theme-card" type="button" data-primary="#f97316" data-secondary="#fb7185">
+          <span class="sw" style="background:#f97316"></span>
+          <span class="sw" style="background:#fb7185"></span>
+          <span class="t">Laranja Bar</span>
+        </button>
+
+        <button class="theme-card" type="button" data-primary="#7c3aed" data-secondary="#a78bfa">
+          <span class="sw" style="background:#7c3aed"></span>
+          <span class="sw" style="background:#a78bfa"></span>
+          <span class="t">Roxo Premium</span>
+        </button>
+
+        <button class="theme-card" type="button" data-primary="#0f172a" data-secondary="#334155">
+          <span class="sw" style="background:#0f172a"></span>
+          <span class="sw" style="background:#334155"></span>
+          <span class="t">Noite Elegante</span>
+        </button>
+      </div>
+
+      <div class="brand-preview" style="margin-top:12px;">
+        <div class="muted">Prévia</div>
+        <div class="brand-chip" id="brandPreview">
+          <div class="logo-dot"></div>
+          <div>
+            <div class="bn" id="prevName">IMPÉRIO</div>
+            <div class="bs">Seu sistema, sua marca</div>
+          </div>
+        </div>
+      </div>
+
 
       <label>WhatsApp suporte</label>
       <input name="whatsapp_support" value="{{ (branding.whatsapp_support if branding and branding.whatsapp_support else '') }}" placeholder="22999480023">
@@ -39,4 +87,41 @@
     </div>
   </div>
 </div>
+
+<script>
+(function(){
+  const form = document.querySelector('form[action="/settings/branding"]');
+  if(!form) return;
+
+  const nameInput = form.querySelector('input[name="product_name"]');
+  const pInput = form.querySelector('input[name="primary_color"]');
+  const sInput = form.querySelector('input[name="secondary_color"]');
+  const prev = document.getElementById("brandPreview");
+  const prevName = document.getElementById("prevName");
+
+  function applyPreview(){
+    const p = pInput.value || "#2f6bff";
+    const s = sInput.value || "#9a7bff";
+    prev.style.borderColor = p;
+    prev.style.background = `linear-gradient(135deg, ${p}22, ${s}22)`;
+    prev.querySelector(".logo-dot").style.background = p;
+    prev.querySelector(".bn").style.color = p;
+    prevName.textContent = (nameInput.value || "IMPÉRIO").toUpperCase();
+  }
+
+  document.querySelectorAll(".theme-card").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      pInput.value = btn.dataset.primary;
+      sInput.value = btn.dataset.secondary;
+      applyPreview();
+    });
+  });
+
+  nameInput.addEventListener("input", applyPreview);
+  pInput.addEventListener("input", applyPreview);
+  sInput.addEventListener("input", applyPreview);
+  applyPreview();
+})();
+</script>
+
 {% endblock %}

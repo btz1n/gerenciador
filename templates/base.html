@@ -15,6 +15,34 @@
   {% endif %}
 </head>
 <body>
+<div class="toast-container" id="toast_container">
+  {% set ok = request.query_params.get('ok') %}
+  {% set err = request.query_params.get('err') %}
+  {% if ok %}
+    <div class="toast success" data-autohide="1">
+      <div class="toast-title">Tudo certo</div>
+      <div class="toast-msg">
+        {% if ok == 'venda_salva' %}Venda salva com sucesso.{% elif ok == 'pedido_salvo' %}Pedido salvo com sucesso.{% else %}Operação concluída.{% endif %}
+      </div>
+    </div>
+  {% endif %}
+  {% if err %}
+    <div class="toast error" data-autohide="0">
+      <div class="toast-title">Atenção</div>
+      <div class="toast-msg">{{ err }}</div>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+(function(){
+  const tc = document.getElementById('toast_container');
+  if(!tc) return;
+  const toasts = tc.querySelectorAll('.toast[data-autohide="1"]');
+  toasts.forEach(t => setTimeout(()=>{ t.classList.add('hide'); setTimeout(()=>t.remove(), 250); }, 2800));
+})();
+</script>
+
 
 {% if user %}
   <div class="app">

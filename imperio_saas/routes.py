@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List
+from urllib.parse import quote
+
 
 from fastapi import APIRouter, Request, Depends, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -324,15 +326,33 @@ def sales_page(request: Request, user: SimpleUser = Depends(require_auth), db: S
 def sale_new_page(request: Request, user: SimpleUser = Depends(require_auth), db: Session = Depends(get_db)):
     require_feature(db, user.store_id, "core_sales")
     products = db.query(Product).filter(Product.store_id == user.store_id).order_by(Product.name.asc()).all()
+    customers = db.query(Customer).filter(Customer.store_id == user.store_id).order_by(Customer.name.asc()).all()
     data = ctx(request, db, user)
-    data.update({"products": products, "kicker":"Venda", "page_title":"Nova venda", "title":"Nova venda"})
+    data.update({"products": products, "customers": customers, "kicker":"Venda", "page_title":"Nova venda", "title":"Nova venda"})
     return templates.TemplateResponse("sale_new.html", data)
+
+# Backwards-compat: some frontends use /sales/create
+@router.get("/sales/create")
+def sale_create_redirect():
+    return RedirectResponse("/sales/new", status_code=302)
+
+@router.post("/sales/create")
+def sale_create_action(
+    request: Request,
+    customer_name: str = Form(""),
+    product_ids: List[str] = Form([]),
+    qtys: List[int] = Form([]),
+    user: SimpleUser = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    return sale_new_action(request, customer_name, product_ids, qtys, user, db)
+
 
 @router.post("/sales/new")
 def sale_new_action(
     request: Request,
     customer_name: str = Form(""),
-    product_ids: List[int] = Form([]),
+    product_ids: List[str] = Form([]),
     qtys: List[int] = Form([]),
     user: SimpleUser = Depends(require_auth),
     db: Session = Depends(get_db),
@@ -343,13 +363,30 @@ def sale_new_action(
 
     total = 0.0
     items: list[SaleItem] = []
-    for pid, q in zip(product_ids, qtys):
-        q = int(q or 1)
-        p = db.query(Product).filter(Product.id == int(pid), Product.store_id == user.store_id).first()
+
+    # product_ids can contain blanks from the form; filter safely
+    n = min(len(product_ids), len(qtys))
+    for i in range(n):
+        pid_raw = (product_ids[i] or "").strip()
+        if not pid_raw:
+            continue
+        try:
+            pid = int(pid_raw)
+        except ValueError:
+            continue
+
+        try:
+            q = int(qtys[i] or 1)
+        except ValueError:
+            q = 1
+        if q < 1:
+            q = 1
+
+        p = db.query(Product).filter(Product.id == pid, Product.store_id == user.store_id).first()
         if not p:
             continue
         if p.stock < q:
-            raise HTTPException(status_code=400, detail=f"Estoque insuficiente para {p.name}")
+            return RedirectResponse("/sales/new?err=" + quote(f"Estoque insuficiente para {p.name}"), status_code=302)
         line_total = float(p.price) * q
         total += line_total
         items.append(SaleItem(product_name=p.name, qty=q, price=float(p.price), line_total=line_total))
@@ -365,7 +402,7 @@ def sale_new_action(
         db.add(it)
     db.commit()
 
-    return RedirectResponse("/sales", status_code=302)
+    return RedirectResponse("/sales?ok=venda_salva", status_code=302)
 
 # =========================
 # ORDERS (Delivery/Depósito)
@@ -396,7 +433,7 @@ def order_new_action(
     request: Request,
     customer_name: str = Form(""),
     status: str = Form("novo"),
-    product_ids: List[int] = Form([]),
+    product_ids: List[str] = Form([]),
     qtys: List[int] = Form([]),
     user: SimpleUser = Depends(require_auth),
     db: Session = Depends(get_db),
@@ -405,13 +442,28 @@ def order_new_action(
     total = 0.0
     items: list[OrderItem] = []
 
-    for pid, q in zip(product_ids, qtys):
-        q = int(q or 1)
-        p = db.query(Product).filter(Product.id == int(pid), Product.store_id == user.store_id).first()
+    n = min(len(product_ids), len(qtys))
+    for i in range(n):
+        pid_raw = (product_ids[i] or "").strip()
+        if not pid_raw:
+            continue
+        try:
+            pid = int(pid_raw)
+        except ValueError:
+            continue
+
+        try:
+            q = int(qtys[i] or 1)
+        except ValueError:
+            q = 1
+        if q < 1:
+            q = 1
+
+        p = db.query(Product).filter(Product.id == pid, Product.store_id == user.store_id).first()
         if not p:
             continue
         if p.stock < q:
-            raise HTTPException(status_code=400, detail=f"Estoque insuficiente para {p.name}")
+            return RedirectResponse("/orders/new?err=" + quote(f"Estoque insuficiente para {p.name}"), status_code=302)
         line_total = float(p.price) * q
         total += line_total
         items.append(OrderItem(product_name=p.name, qty=q, price=float(p.price), line_total=line_total))
@@ -427,7 +479,7 @@ def order_new_action(
         db.add(it)
     db.commit()
 
-    return RedirectResponse("/orders", status_code=302)
+    return RedirectResponse("/orders?ok=pedido_salvo", status_code=302)
 
 @router.post("/orders/{oid}/status")
 def order_update_status(

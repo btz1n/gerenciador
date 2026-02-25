@@ -178,3 +178,119 @@ a:hover{ text-decoration:underline; }
   .app{padding-left:0;}
   .topbar{position:sticky; top:0; backdrop-filter: blur(8px);}
 }
+
+/* Theme presets (settings) */
+.theme-presets{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap:10px;
+}
+.theme-card{
+  border:1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+  padding:10px;
+  border-radius:14px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  cursor:pointer;
+  text-align:left;
+}
+.theme-card:hover{ border-color: rgba(255,255,255,0.25); }
+.theme-card .sw{
+  width:18px;height:18px;border-radius:6px;
+  border:1px solid rgba(0,0,0,0.25);
+}
+.theme-card .t{
+  font-weight:700;
+  font-size:14px;
+}
+.brand-preview .brand-chip{
+  margin-top:8px;
+  border:2px solid var(--primary, #2f6bff);
+  border-radius:16px;
+  padding:12px;
+  display:flex;
+  gap:10px;
+  align-items:center;
+}
+.brand-preview .logo-dot{
+  width:36px;height:36px;border-radius:12px;
+  background:#2f6bff;
+}
+.brand-preview .bn{ font-weight:800; font-size:16px; }
+.brand-preview .bs{ font-size:12px; opacity:0.8; }
+@media (max-width: 560px){
+  .theme-presets{ grid-template-columns: 1fr; }
+}
+
+
+/* ============================
+   Toasts
+============================ */
+.toast-container{
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: min(420px, calc(100vw - 28px));
+}
+.toast{
+  background: rgba(15, 23, 42, .98);
+  border: 1px solid rgba(148, 163, 184, .25);
+  border-radius: 14px;
+  padding: 12px 12px;
+  box-shadow: 0 18px 50px rgba(0,0,0,.35);
+  transform: translateY(0);
+  transition: transform .25s ease, opacity .25s ease;
+}
+.toast.hide{ transform: translateY(-8px); opacity: 0; }
+.toast.success{ border-color: rgba(34, 197, 94, .35); }
+.toast.error{ border-color: rgba(239, 68, 68, .35); }
+.toast-title{ font-weight: 800; margin-bottom: 4px; }
+.toast-msg{ color: rgba(226, 232, 240, .9); line-height: 1.25; }
+
+/* ============================
+   Autocomplete suggestions
+============================ */
+.suggest-wrap{
+  position: relative;
+}
+.suggest{
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  background: rgba(15, 23, 42, .98);
+  border: 1px solid rgba(148, 163, 184, .25);
+  border-radius: 14px;
+  overflow: hidden;
+  display: none;
+  z-index: 50;
+  box-shadow: 0 18px 50px rgba(0,0,0,.35);
+}
+.suggest.show{ display: block; }
+.suggest button{
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  color: rgba(226, 232, 240, .95);
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.suggest button:hover{
+  background: rgba(148, 163, 184, .10);
+}
+.suggest .left{
+  display: flex; flex-direction: column; gap: 2px;
+}
+.suggest .name{ font-weight: 700; }
+.suggest .meta{ font-size: 12px; color: rgba(226,232,240,.75); }
+.suggest .price{ font-weight: 800; white-space: nowrap; }
