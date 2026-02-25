@@ -77,8 +77,6 @@ def ctx(request: Request, db: Session, user: Optional[SimpleUser]):
 def root():
     return RedirectResponse("/login", status_code=302)
 
-@router.get("/login", response_class=HTMLResponse)
-
 def _alloc_number(db: Session, store_id: int, kind: str) -> str:
     """Allocate a sequential human-friendly number per store.
     kind: 'P' (pedido), 'V' (venda), 'C' (comanda)
@@ -132,7 +130,7 @@ def convert_order_to_sale(db: Session, order: Order) -> Sale:
     db.add(order)
     return sale
 
-
+@router.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request, "user": None, "title": "Login"})
 
