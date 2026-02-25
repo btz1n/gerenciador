@@ -386,6 +386,11 @@ def order_new_page(request: Request, user: SimpleUser = Depends(require_auth), d
     data.update({"products": products, "kicker":"Pedido", "page_title":"Novo pedido", "title":"Novo pedido"})
     return templates.TemplateResponse("order_new.html", data)
 
+@router.get("/orders/create")
+def orders_create_redirect():
+    return RedirectResponse("/orders/new", status_code=302)
+
+@router.post("/orders/create")
 @router.post("/orders/new")
 def order_new_action(
     request: Request,
