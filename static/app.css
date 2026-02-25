@@ -77,6 +77,7 @@ a:hover{ text-decoration:underline; }
   padding:16px;
   border-right:1px solid var(--line);
   background: rgba(0,0,0,.20);
+  transition: transform .25s ease;
 }
 .brand{ display:flex; gap:12px; align-items:center; padding-bottom:12px; border-bottom:1px solid var(--line); }
 .logo{ width:42px; height:42px; border-radius:14px; background: linear-gradient(135deg, var(--pri), var(--pri2)); }
@@ -132,4 +133,48 @@ a:hover{ text-decoration:underline; }
   .actions{ width:100%; }
   .actions .btn{ flex:1; }
   .table{ min-width:520px; }
+}
+
+/* ===== Premium UI additions ===== */
+.topbar-left{display:flex; gap:10px; align-items:center;}
+.icon-btn{
+  display:none;
+  border:1px solid var(--line);
+  background:rgba(255,255,255,.06);
+  color:var(--txt);
+  border-radius:12px;
+  padding:10px 12px;
+  cursor:pointer;
+}
+.badge-row{display:flex; gap:6px; margin-top:6px; flex-wrap:wrap;}
+.badge.outline{background:transparent; border:1px solid var(--line);}
+.grid.two{display:grid; grid-template-columns:1.2fr .8fr; gap:12px;}
+.kv{display:flex; justify-content:space-between; gap:10px; border-top:1px solid var(--line); padding:10px 0;}
+.kv .k{color:var(--mut);}
+.kv .v{font-weight:600;}
+.code{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:14px;}
+.list{margin:0; padding-left:18px;}
+.alert.info{border-color:rgba(47,107,255,.35); background:rgba(47,107,255,.10);}
+.chips{display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;}
+.chip{border:1px solid var(--line); padding:6px 10px; border-radius:999px; font-size:12px;}
+.chip.on{background:rgba(80,220,170,.12);}
+.chip.off{background:rgba(255,120,120,.10);}
+
+/* Sidebar responsive */
+@media (max-width: 900px){
+  .icon-btn{display:inline-flex;}
+  .sidebar{
+    position:fixed;
+    z-index:50;
+    height:100vh;
+    left:0;
+    top:0;
+    width:260px;
+  }
+  .sidebar.hidden{
+    transform:translateX(-110%);
+  }
+  .main{padding-left:0;}
+  .app{padding-left:0;}
+  .topbar{position:sticky; top:0; backdrop-filter: blur(8px);}
 }

@@ -3,45 +3,62 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ title or "IMPÉRIO - Sistema" }}</title>
+  <title>{{ title or ((branding.product_name ~ " - Sistema") if branding else "IMPÉRIO - Sistema") }}</title>
   <link rel="stylesheet" href="/static/app.css">
+  {% if branding %}
+  <style>
+    :root{
+      --pri: {{ branding.primary_color }};
+      --pri2: {{ branding.secondary_color }};
+    }
+  </style>
+  {% endif %}
 </head>
 <body>
 
 {% if user %}
   <div class="app">
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
       <div class="brand">
         <div class="logo"></div>
         <div>
-          <div class="brand-title">IMPÉRIO</div>
+          <div class="brand-title">{{ (branding.product_name if branding else "IMPÉRIO") }}</div>
           <div class="brand-sub">{{ user.store_name }}</div>
+          <div class="badge-row">
+            <span class="badge">{{ (segment or "deposito")|upper }}</span>
+            <span class="badge outline">{{ (plan or "basic")|upper }}</span>
+          </div>
         </div>
       </div>
 
       <nav class="nav">
-        <a href="/dashboard">Dashboard</a>
-        <a href="/orders">Pedidos</a>
-        <a href="/sales">Vendas</a>
-        <a href="/products">Produtos</a>
-        <a href="/customers">Clientes</a>
+        {% if features.core_dashboard %}<a href="/dashboard">Dashboard</a>{% endif %}
+        {% if features.segment_orders %}<a href="/orders">Pedidos</a>{% endif %}
+        {% if features.core_sales %}<a href="/sales">Vendas</a>{% endif %}
+        {% if features.core_products %}<a href="/products">Produtos</a>{% endif %}
+        {% if features.core_customers %}<a href="/customers">Clientes</a>{% endif %}
+        {% if user.role == "admin" %}<a href="/settings">Configurações</a>{% endif %}
+        <a href="/billing">Assinatura</a>
       </nav>
 
       <div class="sidebar-footer">
-        <div class="muted">Logado como <b>{{ user.username }}</b></div>
+        <div class="muted">Logado como <b>{{ user.username }}</b> <span class="muted">({{ user.role }})</span></div>
         <a class="link" href="/logout">Sair</a>
       </div>
     </aside>
 
     <main class="main">
       <div class="topbar">
-        <div>
-          <div class="kicker">{{ kicker or "" }}</div>
-          <div class="page-title">{{ page_title or "" }}</div>
+        <div class="topbar-left">
+          <button class="icon-btn" id="toggleMenu" aria-label="Menu">☰</button>
+          <div>
+            <div class="kicker">{{ kicker or "" }}</div>
+            <div class="page-title">{{ page_title or "" }}</div>
+          </div>
         </div>
         <div class="actions">
-          <a class="btn" href="/sales/new">+ Nova venda</a>
-          <a class="btn primary" href="/orders/new">+ Novo pedido</a>
+          {% if features.core_sales %}<a class="btn" href="/sales/new">+ Nova venda</a>{% endif %}
+          {% if features.segment_orders %}<a class="btn primary" href="/orders/new">+ Novo pedido</a>{% endif %}
         </div>
       </div>
 
@@ -52,6 +69,17 @@
       {% block content %}{% endblock %}
     </main>
   </div>
+
+  <script>
+    (function(){
+      const btn = document.getElementById("toggleMenu");
+      const sb = document.getElementById("sidebar");
+      if(!btn || !sb) return;
+      btn.addEventListener("click", function(){
+        sb.classList.toggle("hidden");
+      });
+    })();
+  </script>
 
 {% else %}
   <div class="public-wrap">

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid two">
+  <div class="card">
+    <h3>Ativar / Renovar assinatura</h3>
+    <p class="muted">{{ message }}</p>
+
+    <div class="kv">
+      <div class="k">Plano recomendado</div>
+      <div class="v"><b>ELITE</b> — indicado para cobrar e operar como SaaS premium</div>
+    </div>
+    <div class="kv">
+      <div class="k">Valor</div>
+      <div class="v"><b>R$ {{ price }}</b> / mês</div>
+    </div>
+
+    {% if pix_key %}
+    <div class="kv">
+      <div class="k">PIX (chave)</div>
+      <div class="v code">{{ pix_key }}</div>
+    </div>
+    {% endif %}
+
+    {% if support %}
+    <div class="kv">
+      <div class="k">Suporte WhatsApp</div>
+      <div class="v"><a class="link" target="_blank" href="https://wa.me/55{{ support|replace(' ','')|replace('-','')|replace('(','')|replace(')','') }}">{{ support }}</a></div>
+    </div>
+    {% endif %}
+
+    {% if store_obj and store_obj.paid_until %}
+    <div class="kv">
+      <div class="k">Válido até</div>
+      <div class="v">{{ store_obj.paid_until }}</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h3>O que vem no Elite</h3>
+    <ul class="list">
+      <li><b>Multi-tenant</b> e base pronta para “Império Bar / Delivery / Depósito”</li>
+      <li><b>Dashboard</b> com métricas</li>
+      <li><b>Bloqueio por assinatura</b> (trial + vencimento)</li>
+      <li><b>Features por plano</b> (liga/desliga)</li>
+      <li><b>White-label</b> (logo/cores/nome) quando habilitado</li>
+      <li><b>Responsivo mobile</b> + botão esconder menu</li>
+    </ul>
+    <div class="alert info">
+      <b>Dica:</b> após pagamento, envie o comprovante no WhatsApp para liberar.
+    </div>
+  </div>
+</div>
+{% endblock %}

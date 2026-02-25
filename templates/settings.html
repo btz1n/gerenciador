@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid two">
+  <div class="card">
+    <h3>White-label (Plano superior)</h3>
+    <p class="muted">Personalize o nome e as cores do sistema para o seu cliente. (Precisa estar habilitado em <b>white_label</b>).</p>
+
+    <form method="post" action="/settings/branding" class="form">
+      <label>Nome do produto</label>
+      <input name="product_name" value="{{ (branding.product_name if branding else 'IMPÉRIO') }}" required>
+
+      <label>Cor primária</label>
+      <input name="primary_color" value="{{ (branding.primary_color if branding else '#2f6bff') }}">
+
+      <label>Cor secundária</label>
+      <input name="secondary_color" value="{{ (branding.secondary_color if branding else '#9a7bff') }}">
+
+      <label>WhatsApp suporte</label>
+      <input name="whatsapp_support" value="{{ (branding.whatsapp_support if branding and branding.whatsapp_support else '') }}" placeholder="22999480023">
+
+      <button class="btn primary" type="submit">Salvar branding</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3>Plano e Segmento</h3>
+    <div class="kv"><div class="k">Segmento</div><div class="v"><b>{{ segment }}</b></div></div>
+    <div class="kv"><div class="k">Plano</div><div class="v"><b>{{ plan }}</b></div></div>
+
+    <div class="alert info">
+      Para alterar plano/segmento e habilitar features, use o painel admin (master key) no backend (ou fale com o suporte).
+    </div>
+
+    <h4>Features atuais</h4>
+    <div class="chips">
+      {% for k,v in features.items() %}
+        <span class="chip {{ 'on' if v else 'off' }}">{{ k }}: {{ 'on' if v else 'off' }}</span>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}
