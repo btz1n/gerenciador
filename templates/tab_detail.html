@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <div class="row between">
+    <div>
+      <div class="h3">Comanda {{ tabobj.number or tabobj.id }}</div>
+      <div class="muted">{{ tabobj.table_name }} · {{ tabobj.status }}</div>
+    </div>
+    <a class="link" href="/tabs">Voltar</a>
+  </div>
+
+  <div class="grid two" style="margin-top:12px;">
+    <div class="card" style="margin:0;">
+      <h3>Adicionar item</h3>
+      <form method="post" action="/tabs/{{tabobj.id}}/add" class="row gap wrap">
+        <select class="input" name="product_id" required>
+          <option value="">Produto...</option>
+          {% for p in products %}
+            <option value="{{p.id}}">{{p.name}}{% if p.sku %} ({{p.sku}}){% endif %}</option>
+          {% endfor %}
+        </select>
+        <input class="input" type="number" name="qty" min="1" value="1" style="max-width:120px;">
+        <button class="btn primary">Adicionar</button>
+      </form>
+      <div class="muted" style="margin-top:8px;">Dica: se precisar de ajuda, fale com o suporte.</div>
+    </div>
+
+    <div class="card" style="margin:0;">
+      <h3>Total</h3>
+      <div class="h2">R$ {{ '%.2f'|format(tabobj.total) }}</div>
+      {% if tabobj.status == 'aberta' %}
+      <form method="post" action="/tabs/{{tabobj.id}}/close" style="margin-top:10px;">
+        <button class="btn danger" onclick="return confirm('Fechar comanda e gerar venda?')">Fechar e gerar venda</button>
+      </form>
+      {% endif %}
+      {% if tabobj.converted_sale_id %}
+        <div class="muted" style="margin-top:8px;">Gerou venda ID: {{ tabobj.converted_sale_id }}</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="table-wrap" style="margin-top:12px;">
+    <table class="table">
+      <thead><tr><th>Produto</th><th>Qtd</th><th>Preço</th><th>Subtotal</th></tr></thead>
+      <tbody>
+      {% for it in items %}
+        <tr>
+          <td>{{ it.product_name }}</td>
+          <td>{{ it.qty }}</td>
+          <td>R$ {{ '%.2f'|format(it.price) }}</td>
+          <td>R$ {{ '%.2f'|format(it.line_total) }}</td>
+        </tr>
+      {% endfor %}
+      {% if items|length == 0 %}
+        <tr><td colspan="4" class="muted">Nenhum item ainda.</td></tr>
+      {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

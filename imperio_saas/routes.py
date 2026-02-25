@@ -4,10 +4,11 @@ from __future__ import annotations
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 from urllib.parse import quote
-
+import csv
+import io
 
 from fastapi import APIRouter, Request, Depends, Form, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -15,7 +16,7 @@ from starlette.templating import Jinja2Templates
 
 from .db import engine
 from .deps import get_db, require_auth, SimpleUser, require_feature
-from .models import Store, User, Product, Customer, Sale, SaleItem, Order, OrderItem, StoreBranding, StoreFeature
+from .models import Store, User, Product, Customer, Sale, SaleItem, Order, OrderItem, StoreBranding, StoreFeature, BarTab, BarTabItem
 from .security import hash_password, verify_password
 from .migrations import seed_store_defaults
 
@@ -77,6 +78,61 @@ def root():
     return RedirectResponse("/login", status_code=302)
 
 @router.get("/login", response_class=HTMLResponse)
+
+def _alloc_number(db: Session, store_id: int, kind: str) -> str:
+    """Allocate a sequential human-friendly number per store.
+    kind: 'P' (pedido), 'V' (venda), 'C' (comanda)
+    """
+    store = db.query(Store).filter(Store.id == store_id).with_for_update().first()
+    if not store:
+        raise HTTPException(status_code=400, detail="Loja inválida.")
+    if kind == "P":
+        seq = int(store.next_order_seq or 1)
+        store.next_order_seq = seq + 1
+        number = f"P-{seq:06d}"
+    elif kind == "V":
+        seq = int(store.next_sale_seq or 1)
+        store.next_sale_seq = seq + 1
+        number = f"V-{seq:06d}"
+    else:  # "C"
+        seq = int(getattr(store, "next_tab_seq", 1) or 1)
+        store.next_tab_seq = seq + 1
+        number = f"C-{seq:06d}"
+    db.add(store)
+    return number
+
+def convert_order_to_sale(db: Session, order: Order) -> Sale:
+    """Convert an order to a sale (idempotent). Does NOT change stock (reserved on order creation)."""
+    if order.converted_sale_id:
+        sale = db.query(Sale).filter(Sale.id == order.converted_sale_id, Sale.store_id == order.store_id).first()
+        if sale:
+            return sale
+
+    items = db.query(OrderItem).filter(OrderItem.order_id == order.id).all()
+    sale = Sale(
+        store_id=order.store_id,
+        customer_name=order.customer_name,
+        total=order.total,
+        status="concluida",
+    )
+    sale.number = _alloc_number(db, order.store_id, "V")
+    db.add(sale)
+    db.flush()  # get sale.id
+
+    for it in items:
+        db.add(SaleItem(
+            sale_id=sale.id,
+            product_name=it.product_name,
+            qty=it.qty,
+            price=it.price,
+            line_total=it.line_total,
+        ))
+
+    order.converted_sale_id = sale.id
+    db.add(order)
+    return sale
+
+
 def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request, "user": None, "title": "Login"})
 
@@ -112,10 +168,12 @@ def logout():
     return resp
 
 # ---------- PUBLIC: ADMIN SETUP ----------
+@router.get("/setup", response_class=HTMLResponse)
 @router.get("/admin/setup", response_class=HTMLResponse)
 def admin_setup_page(request: Request):
     return templates.TemplateResponse("setup.html", {"request": request, "user": None, "title": "Criar Loja"})
 
+@router.post("/setup")
 @router.post("/admin/setup")
 def admin_setup_action(
     request: Request,
@@ -134,9 +192,26 @@ def admin_setup_action(
     if get_store_by_name(db, store_name):
         return templates.TemplateResponse("setup.html", {"request": request, "user": None, "error": "Essa loja já existe."})
 
-    store = Store(name=store_name, segment=segment, plan="trial", subscription_status="trial")
+    store = Store(name=store_name, segment=segment, plan="basic", subscription_status="trial")
     store.ensure_trial()
     store.branding = StoreBranding(product_name="IMPÉRIO", whatsapp_support=os.getenv("SUPPORT_WHATSAPP"))
+
+    # Default features (per segment/plan)
+    base_feats = {
+        "core_products": 1,
+        "core_sales": 1,
+        "core_customers": 1,
+        "core_dashboard": 1,
+        "segment_orders": 1 if segment in ("deposito","delivery") else 0,
+        "segment_tables": 1 if segment == "bar" else 0,
+        "reports_export": 0,
+        "finance_module": 0,
+        "multi_user": 0,
+        "white_label": 0,
+    }
+    for k,v in base_feats.items():
+        store.features.append(StoreFeature(key=k, enabled=v))
+
     db.add(store)
     db.commit()
     db.refresh(store)
@@ -168,11 +243,13 @@ def billing_page(request: Request, db: Session = Depends(get_db)):
                 user = SimpleUser(id=u.id, store_id=u.store_id, username=u.username, store_name=store.name, role=u.role, segment=store.segment, plan=store.plan)
 
     pix = os.getenv("PIX_KEY", "")
-    price = os.getenv("PRICE_ELITE", "157,00")
+    price_start = os.getenv("PRICE_START", "89,00")
+    price_pro = os.getenv("PRICE_PRO", "147,00")
+    price_elite = os.getenv("PRICE_ELITE", "197,00")
     support = os.getenv("SUPPORT_WHATSAPP", "")
     message = "Faça o PIX e envie o comprovante no WhatsApp para liberar/renovar sua assinatura."
     data = ctx(request, db, user)
-    data.update({"title":"Assinatura", "kicker":"Assinatura", "page_title":"Ativar assinatura", "pix_key":pix, "price":price, "support":support, "message":message, "store_obj":store})
+    data.update({"title":"Assinatura", "kicker":"Assinatura", "page_title":"Ativar assinatura", "pix_key":pix, "prices":{"start":price_start,"pro":price_pro,"elite":price_elite}, "support":support, "message":message, "store_obj":store})
     return templates.TemplateResponse("billing.html", data)
 
 # =========================
@@ -215,6 +292,17 @@ def dashboard(request: Request, user: SimpleUser = Depends(require_auth), db: Se
         Order.status.in_(["novo", "separando", "saiu"])
     ).scalar() or 0
 
+    delivered_orders_today = db.query(func.count(Order.id)).filter(
+        Order.store_id == user.store_id,
+        Order.status == 'entregue',
+        func.date(Order.created_at) == str(today)
+    ).scalar() or 0
+
+    open_tabs = db.query(func.count(BarTab.id)).filter(
+        BarTab.store_id == user.store_id,
+        BarTab.status == 'aberta'
+    ).scalar() or 0
+
     low_stock = db.query(func.count(Product.id)).filter(
         Product.store_id == user.store_id,
         Product.stock <= 3
@@ -232,6 +320,8 @@ def dashboard(request: Request, user: SimpleUser = Depends(require_auth), db: Se
         "sales_today_count": int(sales_today_count),
         "sales_month_value": float(sales_month_value),
         "pending_orders": int(pending_orders),
+        "delivered_orders_today": int(delivered_orders_today),
+        "open_tabs": int(open_tabs),
         "low_stock": int(low_stock),
         "ticket_avg": float(ticket_avg),
     }
@@ -322,6 +412,75 @@ def sales_page(request: Request, user: SimpleUser = Depends(require_auth), db: S
     data.update({"sales": sales, "kicker":"Histórico", "page_title":"Vendas", "title":"Vendas"})
     return templates.TemplateResponse("sales.html", data)
 
+@router.get("/export/sales.csv")
+def export_sales_csv(
+    request: Request,
+    user: SimpleUser = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    require_feature(db, user.store_id, "reports_export")
+    # optional filters
+    date_from = request.query_params.get("from")
+    date_to = request.query_params.get("to")
+    q = db.query(Sale).filter(Sale.store_id == user.store_id)
+    if date_from:
+        q = q.filter(Sale.created_at >= date_from)
+    if date_to:
+        q = q.filter(Sale.created_at <= date_to)
+    rows = q.order_by(Sale.id.desc()).limit(5000).all()
+
+    out = io.StringIO()
+    w = csv.writer(out)
+    w.writerow(["numero", "data", "cliente", "total", "status"])
+    for s in rows:
+        w.writerow([s.number or s.id, (s.created_at.isoformat() if s.created_at else ""), s.customer_name or "", f"{s.total:.2f}", s.status])
+    data = out.getvalue().encode("utf-8-sig")
+    return Response(content=data, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=vendas.csv"})
+
+@router.get("/export/orders.csv")
+def export_orders_csv(
+    request: Request,
+    user: SimpleUser = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    require_feature(db, user.store_id, "reports_export")
+    date_from = request.query_params.get("from")
+    date_to = request.query_params.get("to")
+    status = (request.query_params.get("status") or "").strip().lower()
+    q = db.query(Order).filter(Order.store_id == user.store_id)
+    if status:
+        q = q.filter(Order.status == status)
+    if date_from:
+        q = q.filter(Order.created_at >= date_from)
+    if date_to:
+        q = q.filter(Order.created_at <= date_to)
+    rows = q.order_by(Order.id.desc()).limit(5000).all()
+
+    out = io.StringIO()
+    w = csv.writer(out)
+    w.writerow(["numero", "data", "cliente", "status", "total", "venda_id"])
+    for o in rows:
+        w.writerow([o.number or o.id, (o.created_at.isoformat() if o.created_at else ""), o.customer_name or "", o.status, f"{o.total:.2f}", o.converted_sale_id or ""])
+    data = out.getvalue().encode("utf-8-sig")
+    return Response(content=data, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=pedidos.csv"})
+
+@router.get("/export/products.csv")
+def export_products_csv(
+    request: Request,
+    user: SimpleUser = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    require_feature(db, user.store_id, "reports_export")
+    rows = db.query(Product).filter(Product.store_id == user.store_id).order_by(Product.name.asc()).all()
+    out = io.StringIO()
+    w = csv.writer(out)
+    w.writerow(["nome", "sku", "estoque", "preco"])
+    for p in rows:
+        w.writerow([p.name, p.sku or "", p.stock, f"{p.price:.2f}"])
+    data = out.getvalue().encode("utf-8-sig")
+    return Response(content=data, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=produtos.csv"})
+
+
 @router.get("/sales/new", response_class=HTMLResponse)
 def sale_new_page(request: Request, user: SimpleUser = Depends(require_auth), db: Session = Depends(get_db)):
     require_feature(db, user.store_id, "core_sales")
@@ -393,6 +552,7 @@ def sale_new_action(
         p.stock -= q
 
     sale = Sale(store_id=user.store_id, customer_name=(customer_name.strip() or None), total=total, status="concluida")
+    sale.number = _alloc_number(db, user.store_id, "V")
     db.add(sale)
     db.commit()
     db.refresh(sale)
@@ -410,10 +570,33 @@ def sale_new_action(
 @router.get("/orders", response_class=HTMLResponse)
 def orders_page(request: Request, user: SimpleUser = Depends(require_auth), db: Session = Depends(get_db)):
     require_feature(db, user.store_id, "segment_orders")
-    orders = db.query(Order).filter(Order.store_id == user.store_id).order_by(Order.id.desc()).limit(200).all()
+
+    tab = (request.query_params.get("tab") or "ativos").lower()
+    q = db.query(Order).filter(Order.store_id == user.store_id)
+
+    # Tabs
+    if tab == "finalizados":
+        q = q.filter(Order.status.in_(["entregue", "cancelado"]))
+    elif tab == "historico":
+        # optional filters
+        date_from = request.query_params.get("from")
+        date_to = request.query_params.get("to")
+        status = (request.query_params.get("status") or "").strip()
+        if status:
+            q = q.filter(Order.status == status)
+        if date_from:
+            q = q.filter(Order.created_at >= date_from)
+        if date_to:
+            q = q.filter(Order.created_at <= date_to)
+    else:
+        # ativos
+        q = q.filter(Order.status.in_(["novo", "preparo", "saiu"]))
+
+    orders = q.order_by(Order.id.desc()).limit(300).all()
     data = ctx(request, db, user)
-    data.update({"orders": orders, "kicker":"Pedidos", "page_title":"Pedidos", "title":"Pedidos"})
+    data.update({"orders": orders, "tab": tab, "kicker":"Pedidos", "page_title":"Pedidos", "title":"Pedidos"})
     return templates.TemplateResponse("orders.html", data)
+
 
 @router.get("/orders/new", response_class=HTMLResponse)
 def order_new_page(request: Request, user: SimpleUser = Depends(require_auth), db: Session = Depends(get_db)):
@@ -470,6 +653,7 @@ def order_new_action(
         p.stock -= q
 
     order = Order(store_id=user.store_id, customer_name=(customer_name.strip() or None), status=status, total=total)
+    order.number = _alloc_number(db, user.store_id, "P")
     db.add(order)
     db.commit()
     db.refresh(order)
@@ -479,7 +663,7 @@ def order_new_action(
         db.add(it)
     db.commit()
 
-    return RedirectResponse("/orders?ok=pedido_salvo", status_code=302)
+    return RedirectResponse("/orders?tab=ativos&ok=pedido_salvo", status_code=302)
 
 @router.post("/orders/{oid}/status")
 def order_update_status(
@@ -491,10 +675,123 @@ def order_update_status(
     require_feature(db, user.store_id, "segment_orders")
     order = db.query(Order).filter(Order.id == oid, Order.store_id == user.store_id).first()
     if not order:
-        return RedirectResponse("/orders", status_code=302)
+        return RedirectResponse("/orders?tab=ativos", status_code=302)
+
+    status = (status or "").strip().lower()
+    order.status = status
+    # Convert to sale when delivered
+    if status == "entregue":
+        convert_order_to_sale(db, order)
+    db.commit()
+
+    if status in ("entregue", "cancelado"):
+        return RedirectResponse("/orders?tab=finalizados&ok=status", status_code=302)
+    return RedirectResponse("/orders?tab=ativos&ok=status", status_code=302)
+
     order.status = status
     db.commit()
     return RedirectResponse("/orders", status_code=302)
+
+
+# =========================
+# BAR: COMANDAS / MESAS
+# =========================
+@router.get("/tabs", response_class=HTMLResponse)
+def tabs_page(request: Request, user: SimpleUser = Depends(require_auth), db: Session = Depends(get_db)):
+    require_feature(db, user.store_id, "segment_tables")
+    tab = (request.query_params.get("tab") or "abertas").lower()
+    q = db.query(BarTab).filter(BarTab.store_id == user.store_id)
+    if tab == "fechadas":
+        q = q.filter(BarTab.status == "fechada")
+    else:
+        q = q.filter(BarTab.status == "aberta")
+    tabs = q.order_by(BarTab.id.desc()).limit(300).all()
+    data = ctx(request, db, user)
+    data.update({"tabs": tabs, "tab": tab, "kicker":"Bar", "page_title":"Comandas", "title":"Comandas"})
+    return templates.TemplateResponse("tabs.html", data)
+
+@router.get("/tabs/new", response_class=HTMLResponse)
+def tab_new_page(request: Request, user: SimpleUser = Depends(require_auth), db: Session = Depends(get_db)):
+    require_feature(db, user.store_id, "segment_tables")
+    data = ctx(request, db, user)
+    data.update({"kicker":"Bar", "page_title":"Nova comanda", "title":"Nova comanda"})
+    return templates.TemplateResponse("tab_new.html", data)
+
+@router.post("/tabs/new")
+def tab_new_action(
+    table_name: str = Form("Mesa"),
+    user: SimpleUser = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    require_feature(db, user.store_id, "segment_tables")
+    t = BarTab(store_id=user.store_id, table_name=(table_name.strip() or "Mesa"), status="aberta", total=0.0)
+    t.number = _alloc_number(db, user.store_id, "C")
+    db.add(t)
+    db.commit()
+    return RedirectResponse(f"/tabs/{t.id}", status_code=302)
+
+@router.get("/tabs/{tid}", response_class=HTMLResponse)
+def tab_detail(request: Request, tid: int, user: SimpleUser = Depends(require_auth), db: Session = Depends(get_db)):
+    require_feature(db, user.store_id, "segment_tables")
+    t = db.query(BarTab).filter(BarTab.id == tid, BarTab.store_id == user.store_id).first()
+    if not t:
+        return RedirectResponse("/tabs", status_code=302)
+    items = db.query(BarTabItem).filter(BarTabItem.tab_id == t.id).all()
+    products = db.query(Product).filter(Product.store_id == user.store_id).order_by(Product.name.asc()).all()
+    data = ctx(request, db, user)
+    data.update({"tabobj": t, "items": items, "products": products, "kicker":"Bar", "page_title":"Comanda", "title":"Comanda"})
+    return templates.TemplateResponse("tab_detail.html", data)
+
+@router.post("/tabs/{tid}/add")
+def tab_add_item(
+    tid: int,
+    product_id: int = Form(...),
+    qty: int = Form(1),
+    user: SimpleUser = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    require_feature(db, user.store_id, "segment_tables")
+    t = db.query(BarTab).filter(BarTab.id == tid, BarTab.store_id == user.store_id).first()
+    if not t or t.status != "aberta":
+        return RedirectResponse("/tabs", status_code=302)
+    p = db.query(Product).filter(Product.id == product_id, Product.store_id == user.store_id).first()
+    if not p:
+        return RedirectResponse(f"/tabs/{tid}?err=produto", status_code=302)
+    q = max(int(qty or 1), 1)
+    if p.stock < q:
+        return RedirectResponse(f"/tabs/{tid}?err=estoque", status_code=302)
+    line_total = float(p.price) * q
+    db.add(BarTabItem(tab_id=t.id, product_name=p.name, qty=q, price=float(p.price), line_total=line_total))
+    p.stock -= q
+    t.total = float(t.total) + line_total
+    db.commit()
+    return RedirectResponse(f"/tabs/{tid}?ok=add", status_code=302)
+
+@router.post("/tabs/{tid}/close")
+def tab_close(
+    tid: int,
+    user: SimpleUser = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    require_feature(db, user.store_id, "segment_tables")
+    t = db.query(BarTab).filter(BarTab.id == tid, BarTab.store_id == user.store_id).first()
+    if not t or t.status != "aberta":
+        return RedirectResponse("/tabs", status_code=302)
+    # convert to sale
+    if not t.converted_sale_id:
+        items = db.query(BarTabItem).filter(BarTabItem.tab_id == t.id).all()
+        sale = Sale(store_id=t.store_id, customer_name=t.table_name, total=t.total, status="concluida")
+        sale.number = _alloc_number(db, t.store_id, "V")
+        db.add(sale)
+        db.flush()
+        for it in items:
+            db.add(SaleItem(sale_id=sale.id, product_name=it.product_name, qty=it.qty, price=it.price, line_total=it.line_total))
+        t.converted_sale_id = sale.id
+    t.status = "fechada"
+    t.closed_at = datetime.now(timezone.utc)
+    db.commit()
+    return RedirectResponse("/tabs?tab=fechadas&ok=close", status_code=302)
+
 
 # =========================
 # SETTINGS (Premium)
@@ -530,3 +827,66 @@ def settings_branding(
     store.branding.whatsapp_support = whatsapp_support.strip()[:40] or None
     db.commit()
     return RedirectResponse("/settings", status_code=302)
+
+
+@router.post("/settings/segment")
+def settings_segment(
+    segment: str = Form(...),
+    user: SimpleUser = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Apenas admin.")
+    store = get_current_store(db, user)
+    seg = (segment or "").strip().lower()
+    if seg not in ("deposito", "delivery", "bar"):
+        seg = "deposito"
+    store.segment = seg
+    # auto-enable segment features based on segment
+    for f in store.features:
+        if f.key == "segment_orders":
+            f.enabled = 1 if seg in ("deposito","delivery") else 0
+        if f.key == "segment_tables":
+            f.enabled = 1 if seg == "bar" else 0
+    db.commit()
+    return RedirectResponse("/settings?ok=segment", status_code=302)
+
+@router.post("/settings/plan")
+def settings_plan(
+    plan: str = Form(...),
+    subscription_status: str = Form("trial"),
+    paid_until: str = Form(""),
+    user: SimpleUser = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Apenas admin.")
+    store = get_current_store(db, user)
+    p = (plan or "").strip().lower()
+    if p not in ("basic","pro","elite"):
+        p = "basic"
+    store.plan = p
+    st = (subscription_status or "trial").strip().lower()
+    if st not in ("trial","active","past_due","suspended"):
+        st = "trial"
+    store.subscription_status = st
+    if paid_until:
+        try:
+            # date yyyy-mm-dd
+            dt = datetime.fromisoformat(paid_until)
+            store.paid_until = dt.replace(tzinfo=timezone.utc)
+        except Exception:
+            pass
+
+    # set feature bundles by plan
+    bundle = {
+        "basic": {"reports_export": 0, "finance_module": 0, "multi_user": 0, "white_label": 0},
+        "pro":   {"reports_export": 1, "finance_module": 1, "multi_user": 1, "white_label": 0},
+        "elite": {"reports_export": 1, "finance_module": 1, "multi_user": 1, "white_label": 1},
+    }[p]
+    for f in store.features:
+        if f.key in bundle:
+            f.enabled = bundle[f.key]
+    db.commit()
+    return RedirectResponse("/settings?ok=plan", status_code=302)
+

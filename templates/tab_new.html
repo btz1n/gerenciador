@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <div class="row between">
+    <div class="h3">Nova comanda</div>
+    <a class="link" href="/tabs">Voltar</a>
+  </div>
+
+  <form method="post" action="/tabs/new" class="form" style="margin-top:10px;">
+    <label>Mesa/Identificação</label>
+    <input class="input" name="table_name" placeholder="Ex: Mesa 1, Balcão, Comanda João" required>
+    <button class="btn primary" style="margin-top:10px;">Criar</button>
+  </form>
+</div>
+{% endblock %}

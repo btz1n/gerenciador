@@ -27,9 +27,16 @@ class Store(Base):
     subscription_status = Column(String(30), default="trial", nullable=False)  # trial / active / past_due / suspended
     paid_until = Column(DateTime(timezone=True), nullable=True)
 
+    # Sequencers (per store)
+    next_order_seq = Column(Integer, default=1, nullable=False)
+    next_sale_seq = Column(Integer, default=1, nullable=False)
+    next_tab_seq = Column(Integer, default=1, nullable=False)
+
     users = relationship("User", back_populates="store")
     branding = relationship("StoreBranding", back_populates="store", uselist=False, cascade="all, delete-orphan")
     features = relationship("StoreFeature", back_populates="store", cascade="all, delete-orphan")
+    orders = relationship("Order", cascade="all, delete-orphan")
+    sales = relationship("Sale", cascade="all, delete-orphan")
 
     def ensure_trial(self):
         if not self.paid_until:
@@ -94,6 +101,7 @@ class Sale(Base):
     __tablename__ = "sales"
     id = Column(Integer, primary_key=True)
     store_id = Column(Integer, ForeignKey("stores.id"), index=True, nullable=False)
+    number = Column(String(20), index=True, nullable=True)  # V-000001
     customer_name = Column(String(160), nullable=True)
     total = Column(Float, default=0.0, nullable=False)
     status = Column(String(40), default="concluida", nullable=False)
@@ -112,6 +120,8 @@ class Order(Base):
     __tablename__ = "orders"
     id = Column(Integer, primary_key=True)
     store_id = Column(Integer, ForeignKey("stores.id"), index=True, nullable=False)
+    number = Column(String(20), index=True, nullable=True)  # P-000001
+    converted_sale_id = Column(Integer, ForeignKey("sales.id"), nullable=True)
     customer_name = Column(String(160), nullable=True)
     status = Column(String(40), default="novo", nullable=False)
     total = Column(Float, default=0.0, nullable=False)
@@ -121,6 +131,31 @@ class OrderItem(Base):
     __tablename__ = "order_items"
     id = Column(Integer, primary_key=True)
     order_id = Column(Integer, ForeignKey("orders.id"), index=True, nullable=False)
+    product_name = Column(String(160), nullable=False)
+    qty = Column(Integer, default=1, nullable=False)
+    price = Column(Float, default=0.0, nullable=False)
+    line_total = Column(Float, default=0.0, nullable=False)
+
+
+# =========================
+# BAR: TABLE TABS (Comandas)
+# =========================
+class BarTab(Base):
+    __tablename__ = "bar_tabs"
+    id = Column(Integer, primary_key=True)
+    store_id = Column(Integer, ForeignKey("stores.id"), index=True, nullable=False)
+    number = Column(String(20), index=True, nullable=True)  # C-000001
+    table_name = Column(String(60), nullable=True)          # Mesa 1 / Balcão
+    status = Column(String(20), default="aberta", nullable=False)  # aberta/fechada
+    total = Column(Float, default=0.0, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
+    closed_at = Column(DateTime(timezone=True), nullable=True)
+    converted_sale_id = Column(Integer, ForeignKey("sales.id"), nullable=True)
+
+class BarTabItem(Base):
+    __tablename__ = "bar_tab_items"
+    id = Column(Integer, primary_key=True)
+    tab_id = Column(Integer, ForeignKey("bar_tabs.id"), index=True, nullable=False)
     product_name = Column(String(160), nullable=False)
     qty = Column(Integer, default=1, nullable=False)
     price = Column(Float, default=0.0, nullable=False)

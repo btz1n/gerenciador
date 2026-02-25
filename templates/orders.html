@@ -4,40 +4,71 @@
 <div class="card">
   <div class="row between">
     <div class="h3">Pedidos</div>
-    <a class="btn primary" href="/orders/new">+ Novo pedido</a>
+    <div class="row gap">
+      {% if features.get('reports_export') %}
+      <a class="btn" href="/export/orders.csv">Exportar CSV</a>
+      {% endif %}
+      <a class="btn primary" href="/orders/new">+ Novo pedido</a>
+    </div>
   </div>
+
+  <div class="tabs" style="margin-top:12px;">
+    <a class="tab {% if tab=='ativos' %}active{% endif %}" href="/orders?tab=ativos">Ativos</a>
+    <a class="tab {% if tab=='finalizados' %}active{% endif %}" href="/orders?tab=finalizados">Finalizados</a>
+    <a class="tab {% if tab=='historico' %}active{% endif %}" href="/orders?tab=historico">Histórico</a>
+  </div>
+
+  {% if tab=='historico' %}
+  <form class="row gap wrap" method="get" action="/orders" style="margin-top:10px;">
+    <input type="hidden" name="tab" value="historico"/>
+    <div class="field">
+      <label>De</label>
+      <input class="input" type="date" name="from" value="{{ request.query_params.get('from','') }}"/>
+    </div>
+    <div class="field">
+      <label>Até</label>
+      <input class="input" type="date" name="to" value="{{ request.query_params.get('to','') }}"/>
+    </div>
+    <div class="field">
+      <label>Status</label>
+      <select class="input" name="status">
+        <option value="">Todos</option>
+        {% for s in ['novo','preparo','saiu','entregue','cancelado'] %}
+          <option value="{{s}}" {% if request.query_params.get('status','')==s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button class="btn">Filtrar</button>
+  </form>
+  {% endif %}
 
   <div class="table-wrap" style="margin-top:10px;">
     <table class="table">
       <thead>
-        <tr><th>ID</th><th>Cliente</th><th>Status</th><th>Total</th><th>Ações</th></tr>
+        <tr><th>Nº</th><th>Cliente</th><th>Status</th><th>Total</th><th>Ações</th></tr>
       </thead>
       <tbody>
-      {% for o in orders %}
+        {% for o in orders %}
         <tr>
-          <td>#{{ o.id }}</td>
-          <td>{{ o.customer_name or "-" }}</td>
-          <td><span class="badge">{{ o.status }}</span></td>
-          <td>R$ {{ "%.2f"|format(o.total) }}</td>
+          <td>{{ o.number or o.id }}</td>
+          <td>{{ o.customer_name or '-' }}</td>
+          <td><span class="pill">{{ o.status }}</span></td>
+          <td>R$ {{ '%.2f'|format(o.total) }}</td>
           <td>
-            <form method="post" action="/orders/{{ o.id }}/status" class="row gap">
-              <select class="input" name="status" style="padding:10px;">
-                <option value="novo" {% if o.status=='novo' %}selected{% endif %}>novo</option>
-                <option value="separando" {% if o.status=='separando' %}selected{% endif %}>separando</option>
-                <option value="saiu" {% if o.status=='saiu' %}selected{% endif %}>saiu</option>
-                <option value="entregue" {% if o.status=='entregue' %}selected{% endif %}>entregue</option>
-                <option value="cancelado" {% if o.status=='cancelado' %}selected{% endif %}>cancelado</option>
+            <form method="post" action="/orders/{{o.id}}/status" class="row gap">
+              <select class="input" name="status">
+                {% for s in ['novo','preparo','saiu','entregue','cancelado'] %}
+                  <option value="{{s}}" {% if o.status==s %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
               </select>
-              <button class="btn" type="submit">Atualizar</button>
+              <button class="btn">Salvar</button>
             </form>
-            <div class="muted" style="margin-top:6px;">
-              Se marcar <b>entregue</b>, vira venda automaticamente.
-            </div>
           </td>
         </tr>
-      {% else %}
-        <tr><td colspan="5" class="muted">Sem pedidos.</td></tr>
-      {% endfor %}
+        {% endfor %}
+        {% if orders|length == 0 %}
+        <tr><td colspan="5" class="muted">Nenhum pedido aqui.</td></tr>
+        {% endif %}
       </tbody>
     </table>
   </div>

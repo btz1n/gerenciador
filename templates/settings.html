@@ -3,7 +3,7 @@
 <div class="grid two">
   <div class="card">
     <h3>White-label (Plano superior)</h3>
-    <p class="muted">Personalize o nome e as cores do sistema para o seu cliente. (Precisa estar habilitado em <b>white_label</b>).</p>
+    <p class="muted">Deixe o sistema com a identidade da sua loja (nome, cores e logo). Se precisar de ajuda, fale direto com o suporte.</p>
 
     <form method="post" action="/settings/branding" class="form">
       <label>Nome do produto</label>
@@ -125,3 +125,36 @@
 </script>
 
 {% endblock %}
+
+    <h3>Tipo de negócio</h3>
+    <p class="muted">Escolha o perfil que melhor combina com sua operação. Você pode trocar quando quiser.</p>
+    <form method="post" action="/settings/segment" class="form">
+      <label>Segmento</label>
+      <select class="input" name="segment">
+        {% for seg,label in [('deposito','Loja / Depósito'),('delivery','Delivery'),('bar','Bar')] %}
+          <option value="{{seg}}" {% if store and store.segment==seg %}selected{% endif %}>{{label}}</option>
+        {% endfor %}
+      </select>
+      <button class="btn primary" style="margin-top:10px;">Salvar</button>
+    </form>
+
+    <div style="height:16px;"></div>
+    <h3>Plano e assinatura</h3>
+    <p class="muted">Para ativar ou renovar seu plano, fale com o suporte. Se você for o responsável pela loja, também pode ajustar o plano por aqui.</p>
+    <form method="post" action="/settings/plan" class="form">
+      <label>Plano</label>
+      <select class="input" name="plan">
+        {% for p,label in [('basic','Start'),('pro','Pro'),('elite','Elite')] %}
+          <option value="{{p}}" {% if store and store.plan==p %}selected{% endif %}>{{label}}</option>
+        {% endfor %}
+      </select>
+      <label>Status</label>
+      <select class="input" name="subscription_status">
+        {% for st in ['trial','active','past_due','suspended'] %}
+          <option value="{{st}}" {% if store and store.subscription_status==st %}selected{% endif %}>{{st}}</option>
+        {% endfor %}
+      </select>
+      <label>Válido até</label>
+      <input class="input" type="date" name="paid_until" value="{{ (store.paid_until.date().isoformat() if store and store.paid_until else '') }}">
+      <button class="btn primary" style="margin-top:10px;">Salvar</button>
+    </form>

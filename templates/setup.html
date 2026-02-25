@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 {% block public %}
-<h2 class="h2">Criar Loja (Admin)</h2>
-<p class="muted">Crie a primeira loja e o usuário admin.</p>
+<h2 class="h2">Criar Loja (Responsável)</h2>
+<p class="muted">Crie a primeira loja e o usuário dono.</p>
 
-<form method="post" action="/admin/setup" class="form">
+<form method="post" action="/dono/setup" class="form">
   <label class="label">Nome da Loja</label>
   <input class="input" name="store_name" required placeholder="ex: Império">
 
-  <label class="label">Usuário Admin</label>
-  <input class="input" name="username" required placeholder="ex: admin">
+  <label class="label">Usuário Responsável</label>
+  <input class="input" name="username" required placeholder="ex: dono">
 
   <label class="label">Segmento</label>
   <select class="input" name="segment">

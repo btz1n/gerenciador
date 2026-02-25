@@ -42,10 +42,36 @@ def ensure_schema(engine):
             add_cols.append(("subscription_status", "VARCHAR(30)", "'trial'"))
         if "paid_until" not in cols:
             add_cols.append(("paid_until", "TIMESTAMP", "NULL"))
+        if "next_order_seq" not in cols:
+            add_cols.append(("next_order_seq", "INTEGER", "1"))
+        if "next_sale_seq" not in cols:
+            add_cols.append(("next_sale_seq", "INTEGER", "1"))
+        if "next_tab_seq" not in cols:
+            add_cols.append(("next_tab_seq", "INTEGER", "1"))
 
         with engine.begin() as conn:
             for name, sqltype, default in add_cols:
                 conn.execute(text(f"ALTER TABLE stores ADD COLUMN {name} {sqltype} DEFAULT {default}"))
+
+    # Orders/Sales additional columns
+    if "orders" in insp.get_table_names():
+        ocols = {c["name"] for c in insp.get_columns("orders")}
+        o_add = []
+        if "number" not in ocols:
+            o_add.append(("number", "VARCHAR(20)", "NULL"))
+        if "converted_sale_id" not in ocols:
+            o_add.append(("converted_sale_id", "INTEGER", "NULL"))
+        with engine.begin() as conn:
+            for name, sqltype, default in o_add:
+                conn.execute(text(f"ALTER TABLE orders ADD COLUMN {name} {sqltype} DEFAULT {default}"))
+    if "sales" in insp.get_table_names():
+        scols = {c["name"] for c in insp.get_columns("sales")}
+        s_add = []
+        if "number" not in scols:
+            s_add.append(("number", "VARCHAR(20)", "NULL"))
+        with engine.begin() as conn:
+            for name, sqltype, default in s_add:
+                conn.execute(text(f"ALTER TABLE sales ADD COLUMN {name} {sqltype} DEFAULT {default}"))
 
 def seed_store_defaults(db: Session):
     """

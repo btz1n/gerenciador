@@ -17,6 +17,20 @@
     <div class="big">{{ stats.pending_orders }}</div>
     <div class="muted">novo / separando / saiu</div>
   </div>
+
+  <div class="card">
+    <div class="muted">Entregues hoje</div>
+    <div class="big">{{ stats.delivered_orders_today }}</div>
+    <div class="muted">pedidos concluídos</div>
+  </div>
+  {% if features.segment_tables %}
+  <div class="card">
+    <div class="muted">Comandas abertas</div>
+    <div class="big">{{ stats.open_tabs }}</div>
+    <div class="muted">em andamento</div>
+  </div>
+  {% endif %}
+
   <div class="card">
     <div class="muted">Estoque baixo</div>
     <div class="big">{{ stats.low_stock }}</div>

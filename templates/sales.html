@@ -4,12 +4,15 @@
 <div class="card">
   <div class="row between">
     <div class="h3">Vendas</div>
-    <a class="btn primary" href="/sales/new">+ Nova venda</a>
+    <div class="row gap">
+      {% if features.get(\'reports_export\') %}<a class="btn" href="/export/sales.csv">Exportar CSV</a>{% endif %}
+      <a class="btn primary" href="/sales/new">+ Nova venda</a>
+    </div>
   </div>
 
   <div class="table-wrap" style="margin-top:10px;">
     <table class="table">
-      <thead><tr><th>ID</th><th>Cliente</th><th>Status</th><th>Total</th><th>Data</th></tr></thead>
+      <thead><tr><th>Nº</th><th>Cliente</th><th>Status</th><th>Total</th><th>Data</th></tr></thead>
       <tbody>
       {% for s in sales %}
         <tr>

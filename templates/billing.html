@@ -2,19 +2,29 @@
 {% block content %}
 <div class="grid two">
   <div class="card">
-    <h3>Ativar / Renovar assinatura</h3>
+    <h3>Assinatura</h3>
     <p class="muted">{{ message }}</p>
 
-    <div class="kv">
-      <div class="k">Plano recomendado</div>
-      <div class="v"><b>ELITE</b> — indicado para cobrar e operar como SaaS premium</div>
-    </div>
-    <div class="kv">
-      <div class="k">Valor</div>
-      <div class="v"><b>R$ {{ price }}</b> / mês</div>
+    <div class="grid3" style="margin-top:12px;">
+      <div class="card" style="margin:0;">
+        <div class="h3">Start</div>
+        <div class="big">R$ {{ prices.start }}</div>
+        <div class="muted">por mês</div>
+      </div>
+      <div class="card" style="margin:0;">
+        <div class="h3">Pro</div>
+        <div class="big">R$ {{ prices.pro }}</div>
+        <div class="muted">por mês</div>
+      </div>
+      <div class="card" style="margin:0;">
+        <div class="h3">Elite</div>
+        <div class="big">R$ {{ prices.elite }}</div>
+        <div class="muted">por mês</div>
+      </div>
     </div>
 
     {% if pix_key %}
+    <div style="height:12px;"></div>
     <div class="kv">
       <div class="k">PIX (chave)</div>
       <div class="v code">{{ pix_key }}</div>
@@ -22,33 +32,25 @@
     {% endif %}
 
     {% if support %}
-    <div class="kv">
-      <div class="k">Suporte WhatsApp</div>
-      <div class="v"><a class="link" target="_blank" href="https://wa.me/55{{ support|replace(' ','')|replace('-','')|replace('(','')|replace(')','') }}">{{ support }}</a></div>
-    </div>
-    {% endif %}
-
-    {% if store_obj and store_obj.paid_until %}
-    <div class="kv">
-      <div class="k">Válido até</div>
-      <div class="v">{{ store_obj.paid_until }}</div>
-    </div>
+    <div style="height:12px;"></div>
+    <a class="btn primary" target="_blank" href="https://wa.me/55{{ support|replace(' ','')|replace('-','')|replace('(','')|replace(')','') }}">Falar com o suporte</a>
+    {% else %}
+    <div style="height:12px;"></div>
+    <div class="muted">Suporte: consulte o responsável pela sua implantação.</div>
     {% endif %}
   </div>
 
   <div class="card">
-    <h3>O que vem no Elite</h3>
-    <ul class="list">
-      <li><b>Multi-tenant</b> e base pronta para “Império Bar / Delivery / Depósito”</li>
-      <li><b>Dashboard</b> com métricas</li>
-      <li><b>Bloqueio por assinatura</b> (trial + vencimento)</li>
-      <li><b>Features por plano</b> (liga/desliga)</li>
-      <li><b>White-label</b> (logo/cores/nome) quando habilitado</li>
-      <li><b>Responsivo mobile</b> + botão esconder menu</li>
-    </ul>
-    <div class="alert info">
-      <b>Dica:</b> após pagamento, envie o comprovante no WhatsApp para liberar.
-    </div>
+    <h3>Status da sua loja</h3>
+    {% if store_obj %}
+      <div class="kv"><div class="k">Loja</div><div class="v"><b>{{ store_obj.name }}</b></div></div>
+      <div class="kv"><div class="k">Plano atual</div><div class="v">{{ store_obj.plan }}</div></div>
+      <div class="kv"><div class="k">Status</div><div class="v">{{ store_obj.subscription_status }}</div></div>
+      <div class="kv"><div class="k">Válido até</div><div class="v">{{ store_obj.paid_until }}</div></div>
+      <div class="muted" style="margin-top:10px;">Para mudar de plano ou renovar, fale com o suporte.</div>
+    {% else %}
+      <div class="muted">Entre na sua conta para ver o status da sua loja.</div>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

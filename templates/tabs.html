@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <div class="row between">
+    <div class="h3">Comandas</div>
+    <a class="btn primary" href="/tabs/new">+ Nova comanda</a>
+  </div>
+
+  <div class="tabs" style="margin-top:12px;">
+    <a class="tab {% if tab=='abertas' %}active{% endif %}" href="/tabs?tab=abertas">Abertas</a>
+    <a class="tab {% if tab=='fechadas' %}active{% endif %}" href="/tabs?tab=fechadas">Fechadas</a>
+  </div>
+
+  <div class="table-wrap" style="margin-top:10px;">
+    <table class="table">
+      <thead><tr><th>Nº</th><th>Mesa/Comanda</th><th>Status</th><th>Total</th><th></th></tr></thead>
+      <tbody>
+      {% for t in tabs %}
+        <tr>
+          <td>{{ t.number or t.id }}</td>
+          <td>{{ t.table_name or '-' }}</td>
+          <td><span class="pill">{{ t.status }}</span></td>
+          <td>R$ {{ '%.2f'|format(t.total) }}</td>
+          <td><a class="btn" href="/tabs/{{t.id}}">Abrir</a></td>
+        </tr>
+      {% endfor %}
+      {% if tabs|length == 0 %}
+        <tr><td colspan="5" class="muted">Nenhuma comanda aqui.</td></tr>
+      {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
