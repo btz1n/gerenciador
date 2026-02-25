@@ -32,14 +32,24 @@ def get_store(db: Session, store_id: int) -> Store | None:
     return db.query(Store).filter(Store.id == store_id).first()
 
 def is_subscription_ok(store: Store) -> tuple[bool, str]:
+    # IMPORTANT:
+    # SQLite/Postgres may return offset-naive datetimes depending on driver/config.
+    # Normalize both values to offset-aware UTC before comparing to avoid:
+    # TypeError: can't compare offset-naive and offset-aware datetimes
     now = datetime.now(timezone.utc)
+    paid_until = store.paid_until
+    if paid_until is not None:
+        if paid_until.tzinfo is None:
+            paid_until = paid_until.replace(tzinfo=timezone.utc)
+        else:
+            paid_until = paid_until.astimezone(timezone.utc)
     if store.subscription_status in ("suspended",):
         return False, "Sua assinatura está suspensa."
     if store.subscription_status in ("active", "trial"):
-        if store.paid_until and store.paid_until < now and store.subscription_status != "active":
+        if paid_until and paid_until < now and store.subscription_status != "active":
             # trial ended
             return False, "Seu teste grátis terminou. Ative sua assinatura para continuar."
-        if store.paid_until and store.paid_until < now and store.subscription_status == "active":
+        if paid_until and paid_until < now and store.subscription_status == "active":
             return False, "Assinatura vencida. Renove para continuar."
         return True, ""
     if store.subscription_status == "past_due":

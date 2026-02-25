@@ -4,6 +4,8 @@ jinja2==3.1.4
 SQLAlchemy==2.0.34
 python-multipart==0.0.9
 passlib[bcrypt]==1.7.4
-bcrypt==4.2.0
+# passlib 1.7.x expects bcrypt to expose __about__.__version__.
+# Newer bcrypt versions removed it, causing: AttributeError: module 'bcrypt' has no attribute '__about__'
+bcrypt==4.0.1
 gunicorn==25.1.0
 psycopg2-binary==2.9.11
