@@ -51,6 +51,54 @@
     {% else %}
       <div class="muted">Entre na sua conta para ver o status da sua loja.</div>
     {% endif %}
+
+  <div class="card">
+    <h3>Personalização da loja</h3>
+    <p class="muted">Ajuste cores e tema. Troca de logo e nome do sistema disponível no plano ELITE.</p>
+
+    {% if user and user.role == 'admin' %}
+    <form method="post" action="/settings/branding" class="form" enctype="multipart/form-data">
+      <label>Nome do sistema (ELITE)</label>
+      <input name="product_name" value="{{ (branding.product_name if branding else 'IMPÉRIO') }}" {% if not features.get('white_label') %}disabled{% endif %}>
+
+      <label>Cor primária (botões)</label>
+      <input type="color" name="primary_color" value="{{ (branding.primary_color if branding else '#2f6bff') }}">
+
+      <label>Cor secundária</label>
+      <input type="color" name="secondary_color" value="{{ (branding.secondary_color if branding else '#9a7bff') }}">
+
+      {% if features.get('theme_custom') %}
+        <label>Tema</label>
+        <select name="theme_mode" class="input">
+          <option value="dark" {% if branding and branding.theme_mode=="dark" %}selected{% endif %}>Escuro (Dark)</option>
+          <option value="light" {% if branding and branding.theme_mode=="light" %}selected{% endif %}>Claro (Light)</option>
+        </select>
+
+        <label>Cor de fundo</label>
+        <input class="input" type="color" name="bg_color" value="{{ branding.bg_color if branding and branding.bg_color else '#0b0f14' }}">
+        <div class="muted" style="margin-top:6px">Dica: fundo mais claro ajuda na leitura.</div>
+      {% else %}
+        <div class="muted" style="margin-top:10px">Tema claro/escuro e fundo disponível no plano PRO ou ELITE.</div>
+      {% endif %}
+
+      <label>WhatsApp do suporte (opcional)</label>
+      <input name="whatsapp_support" value="{{ (branding.whatsapp_support if branding else '') }}" placeholder="Ex: 22999480023">
+
+      {% if features.get('white_label') %}
+        <label>Logo (ELITE)</label>
+        <input class="input" type="file" name="logo_file" accept="image/*">
+        <div class="muted" style="margin-top:6px">Recomendado: PNG com fundo transparente.</div>
+      {% else %}
+        <div class="muted" style="margin-top:10px">Troca de logo disponível no plano ELITE.</div>
+      {% endif %}
+
+      <div style="height:10px"></div>
+      <button class="btn" type="submit">Salvar personalização</button>
+    </form>
+    {% else %}
+      <div class="muted">Somente o admin da loja pode personalizar.</div>
+    {% endif %}
+  </div>
   </div>
 </div>
 {% endblock %}

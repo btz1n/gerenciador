@@ -917,7 +917,7 @@ def settings_page(request: Request, user: SimpleUser = Depends(require_auth), db
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Apenas admin.")
     if not is_master(request):
-        raise HTTPException(status_code=403, detail="Acesso restrito ao suporte.")
+        return RedirectResponse("/billing?err=suporte", status_code=302)
     store = get_current_store(db, user)
     data = ctx(request, db, user)
     data["is_master"] = is_master(request)
@@ -968,7 +968,7 @@ def settings_branding(
             pass
 
     db.commit()
-    return RedirectResponse("/settings", status_code=302)
+    return RedirectResponse("/billing?ok=branding", status_code=302)
 
 
 @router.post("/settings/segment")
@@ -980,7 +980,7 @@ def settings_segment(
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Apenas admin.")
     if not is_master(request):
-        raise HTTPException(status_code=403, detail="Acesso restrito ao suporte.")
+        return RedirectResponse("/billing?err=suporte", status_code=302)
     store = get_current_store(db, user)
     seg = (segment or "").strip().lower()
     if seg not in ("deposito", "delivery", "bar"):
@@ -1006,7 +1006,7 @@ def settings_plan(
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Apenas admin.")
     if not is_master(request):
-        raise HTTPException(status_code=403, detail="Acesso restrito ao suporte.")
+        return RedirectResponse("/billing?err=suporte", status_code=302)
     store = get_current_store(db, user)
     p = (plan or "").strip().lower()
     if p not in ("basic","pro","elite"):
