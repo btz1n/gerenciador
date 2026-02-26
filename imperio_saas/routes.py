@@ -25,6 +25,14 @@ import base64
 
 PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMPLATES_DIR = os.path.join(PROJECT_DIR, "templates")
+
+def is_master(request: Request) -> bool:
+    # Master access to manage subscriptions (only you)
+    try:
+        return request.cookies.get("imperio_master") == "1"
+    except Exception:
+        return False
+
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 router = APIRouter()
@@ -55,6 +63,81 @@ def ensure_store_ready(db: Session, store: Store):
     db.commit()
     seed_store_defaults(db)
 
+
+# =========================
+# MASTER PORTAL (only you)
+# =========================
+@router.get("/imperio-admin/login", response_class=HTMLResponse)
+def master_login_page(request: Request):
+    # simple login screen for master
+    return templates.TemplateResponse("master_login.html", {"request": request})
+
+@router.post("/imperio-admin/login")
+def master_login(password: str = Form(""), request: Request = None):
+    key = os.getenv("IMPERIO_MASTER_KEY", "").strip()
+    if not key or password.strip() != key:
+        resp = RedirectResponse("/imperio-admin/login?err=1", status_code=302)
+        return resp
+    resp = RedirectResponse("/imperio-admin", status_code=302)
+    resp.set_cookie("imperio_master", "1", httponly=True, samesite="lax")
+    return resp
+
+@router.get("/imperio-admin/logout")
+def master_logout():
+    resp = RedirectResponse("/", status_code=302)
+    resp.delete_cookie("imperio_master")
+    return resp
+
+@router.get("/imperio-admin", response_class=HTMLResponse)
+def master_portal(request: Request, db: Session = Depends(get_db)):
+    if not is_master(request):
+        return RedirectResponse("/imperio-admin/login", status_code=302)
+    stores = db.query(Store).order_by(Store.id.desc()).limit(200).all()
+    return templates.TemplateResponse("master_portal.html", {"request": request, "stores": stores, "PLAN_PRICES": PLAN_PRICES})
+
+@router.post("/imperio-admin/plan")
+def master_set_plan(
+    store_id: int = Form(...),
+    plan: str = Form(...),
+    subscription_status: str = Form("active"),
+    paid_until: str = Form(""),
+    db: Session = Depends(get_db),
+    request: Request = None,
+):
+    if not is_master(request):
+        raise HTTPException(status_code=403, detail="Acesso restrito.")
+    store = db.query(Store).filter(Store.id == store_id).first()
+    if not store:
+        return RedirectResponse("/imperio-admin?err=store", status_code=302)
+    p = (plan or "").strip().lower()
+    if p not in ("basic","pro","elite"):
+        p = "basic"
+    store.plan = p
+    st = (subscription_status or "active").strip().lower()
+    if st not in ("trial","active","past_due","suspended"):
+        st = "active"
+    store.subscription_status = st
+    if paid_until:
+        try:
+            dt = datetime.fromisoformat(paid_until)
+            store.paid_until = dt.replace(tzinfo=timezone.utc)
+        except Exception:
+            pass
+    # ensure feature rows exist
+    ensure_default_features(db, store)
+    # apply bundle
+    bundle = {
+        "basic": {"reports_export": 0, "finance_module": 0, "multi_user": 0, "white_label": 0, "theme_custom": 0},
+        "pro":   {"reports_export": 1, "finance_module": 1, "multi_user": 1, "white_label": 0, "theme_custom": 1},
+        "elite": {"reports_export": 1, "finance_module": 1, "multi_user": 1, "white_label": 1, "theme_custom": 1},
+    }[p]
+    for f in store.features:
+        if f.key in bundle:
+            f.enabled = bundle[f.key]
+    db.commit()
+    return RedirectResponse("/imperio-admin?ok=1", status_code=302)
+
+
 def ctx(request: Request, db: Session, user: Optional[SimpleUser]):
     branding = None
     segment = None
@@ -72,6 +155,9 @@ def ctx(request: Request, db: Session, user: Optional[SimpleUser]):
     return {"request": request, "user": user, "branding": branding, "segment": segment, "features": features, "plan": plan, "store": store}
 
 
+
+PLAN_PRICES = {'basic': 89, 'pro': 157, 'elite': 197}
+
 FEATURE_META = {
     "core_dashboard": {"label": "Dashboard", "desc": "Visão geral do dia/mês, pedidos e indicadores."},
     "core_products": {"label": "Produtos e Estoque", "desc": "Cadastro de produtos, preço, SKU e controle de estoque."},
@@ -82,6 +168,7 @@ FEATURE_META = {
     "reports_export": {"label": "Exportação (CSV)", "desc": "Exportar vendas, pedidos e produtos para Excel (CSV)."},
     "finance_module": {"label": "Financeiro", "desc": "Recursos de caixa/financeiro (quando habilitado)."},
     "multi_user": {"label": "Múltiplos usuários", "desc": "Crie mais usuários e permissões (quando habilitado)."},
+    "theme_custom": {"label": "Tema (claro/escuro e fundo)", "desc": "Escolha tema claro/escuro e cor de fundo.", "plan": "pro"},
     "white_label": {"label": "Personalização de marca", "desc": "Trocar nome, cores e logo do sistema (plano completo)."},
 }
 
@@ -261,11 +348,12 @@ def billing_page(request: Request, db: Session = Depends(get_db)):
 
     pix = os.getenv("PIX_KEY", "")
     price_start = os.getenv("PRICE_START", "89,00")
-    price_pro = os.getenv("PRICE_PRO", "147,00")
+    price_pro = os.getenv("PRICE_PRO", "157,00")
     price_elite = os.getenv("PRICE_ELITE", "197,00")
     support = os.getenv("SUPPORT_WHATSAPP", "")
     message = "Faça o PIX e envie o comprovante no WhatsApp para liberar/renovar sua assinatura."
     data = ctx(request, db, user)
+    data["is_master"] = is_master(request)
     data.update({"title":"Assinatura", "kicker":"Assinatura", "page_title":"Ativar assinatura", "pix_key":pix, "prices":{"start":price_start,"pro":price_pro,"elite":price_elite}, "support":support, "message":message, "store_obj":store})
     return templates.TemplateResponse("billing.html", data)
 
@@ -344,6 +432,7 @@ def dashboard(request: Request, user: SimpleUser = Depends(require_auth), db: Se
     }
 
     data = ctx(request, db, user)
+    data["is_master"] = is_master(request)
     data.update({"stats": stats, "last_sales": last_sales, "kicker": "Visão geral", "page_title": "Dashboard", "title":"Dashboard"})
     return templates.TemplateResponse("dashboard.html", data)
 
@@ -355,6 +444,7 @@ def products_page(request: Request, user: SimpleUser = Depends(require_auth), db
     require_feature(db, user.store_id, "core_products")
     q = db.query(Product).filter(Product.store_id == user.store_id).order_by(Product.id.desc()).all()
     data = ctx(request, db, user)
+    data["is_master"] = is_master(request)
     data.update({"products": q, "kicker":"Catálogo", "page_title":"Produtos", "title":"Produtos"})
     return templates.TemplateResponse("products.html", data)
 
@@ -391,6 +481,7 @@ def customers_page(request: Request, user: SimpleUser = Depends(require_auth), d
     require_feature(db, user.store_id, "core_customers")
     q = db.query(Customer).filter(Customer.store_id == user.store_id).order_by(Customer.id.desc()).all()
     data = ctx(request, db, user)
+    data["is_master"] = is_master(request)
     data.update({"customers": q, "kicker":"Cadastro", "page_title":"Clientes", "title":"Clientes"})
     return templates.TemplateResponse("customers.html", data)
 
@@ -426,6 +517,7 @@ def sales_page(request: Request, user: SimpleUser = Depends(require_auth), db: S
     require_feature(db, user.store_id, "core_sales")
     sales = db.query(Sale).filter(Sale.store_id == user.store_id).order_by(Sale.id.desc()).limit(200).all()
     data = ctx(request, db, user)
+    data["is_master"] = is_master(request)
     data.update({"sales": sales, "kicker":"Histórico", "page_title":"Vendas", "title":"Vendas"})
     return templates.TemplateResponse("sales.html", data)
 
@@ -504,6 +596,7 @@ def sale_new_page(request: Request, user: SimpleUser = Depends(require_auth), db
     products = db.query(Product).filter(Product.store_id == user.store_id).order_by(Product.name.asc()).all()
     customers = db.query(Customer).filter(Customer.store_id == user.store_id).order_by(Customer.name.asc()).all()
     data = ctx(request, db, user)
+    data["is_master"] = is_master(request)
     data.update({"products": products, "customers": customers, "kicker":"Venda", "page_title":"Nova venda", "title":"Nova venda"})
     return templates.TemplateResponse("sale_new.html", data)
 
@@ -611,6 +704,7 @@ def orders_page(request: Request, user: SimpleUser = Depends(require_auth), db: 
 
     orders = q.order_by(Order.id.desc()).limit(300).all()
     data = ctx(request, db, user)
+    data["is_master"] = is_master(request)
     data.update({"orders": orders, "tab": tab, "kicker":"Pedidos", "page_title":"Pedidos", "title":"Pedidos"})
     return templates.TemplateResponse("orders.html", data)
 
@@ -620,6 +714,7 @@ def order_new_page(request: Request, user: SimpleUser = Depends(require_auth), d
     require_feature(db, user.store_id, "segment_orders")
     products = db.query(Product).filter(Product.store_id == user.store_id).order_by(Product.name.asc()).all()
     data = ctx(request, db, user)
+    data["is_master"] = is_master(request)
     data.update({"products": products, "kicker":"Pedido", "page_title":"Novo pedido", "title":"Novo pedido"})
     return templates.TemplateResponse("order_new.html", data)
 
@@ -724,6 +819,7 @@ def tabs_page(request: Request, user: SimpleUser = Depends(require_auth), db: Se
         q = q.filter(BarTab.status == "aberta")
     tabs = q.order_by(BarTab.id.desc()).limit(300).all()
     data = ctx(request, db, user)
+    data["is_master"] = is_master(request)
     data.update({"tabs": tabs, "tab": tab, "kicker":"Bar", "page_title":"Comandas", "title":"Comandas"})
     return templates.TemplateResponse("tabs.html", data)
 
@@ -731,6 +827,7 @@ def tabs_page(request: Request, user: SimpleUser = Depends(require_auth), db: Se
 def tab_new_page(request: Request, user: SimpleUser = Depends(require_auth), db: Session = Depends(get_db)):
     require_feature(db, user.store_id, "segment_tables")
     data = ctx(request, db, user)
+    data["is_master"] = is_master(request)
     data.update({"kicker":"Bar", "page_title":"Nova comanda", "title":"Nova comanda"})
     return templates.TemplateResponse("tab_new.html", data)
 
@@ -756,6 +853,7 @@ def tab_detail(request: Request, tid: int, user: SimpleUser = Depends(require_au
     items = db.query(BarTabItem).filter(BarTabItem.tab_id == t.id).all()
     products = db.query(Product).filter(Product.store_id == user.store_id).order_by(Product.name.asc()).all()
     data = ctx(request, db, user)
+    data["is_master"] = is_master(request)
     data.update({"tabobj": t, "items": items, "products": products, "kicker":"Bar", "page_title":"Comanda", "title":"Comanda"})
     return templates.TemplateResponse("tab_detail.html", data)
 
@@ -818,8 +916,11 @@ def settings_page(request: Request, user: SimpleUser = Depends(require_auth), db
     # Only admins
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Apenas admin.")
+    if not is_master(request):
+        raise HTTPException(status_code=403, detail="Acesso restrito ao suporte.")
     store = get_current_store(db, user)
     data = ctx(request, db, user)
+    data["is_master"] = is_master(request)
     data.update({"kicker":"Admin", "page_title":"Configurações", "title":"Configurações"})
     data["feature_meta"] = FEATURE_META
     return templates.TemplateResponse("settings.html", data)
@@ -830,22 +931,32 @@ def settings_branding(
     product_name: str = Form(...),
     primary_color: str = Form("#2f6bff"),
     secondary_color: str = Form("#9a7bff"),
+    theme_mode: str = Form("dark"),
+    bg_color: str = Form("#0b0f14"),
     whatsapp_support: str = Form(""),
     logo_file: UploadFile | None = File(None),
     user: SimpleUser = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
-    # white label feature
-    require_feature(db, user.store_id, "white_label")
     store = get_current_store(db, user)
+    # Permissions by plan/features
+    can_white = has_feature(store, "white_label")
+    can_theme = has_feature(store, "theme_custom")
     if not store.branding:
         store.branding = StoreBranding()
-    store.branding.product_name = product_name.strip()[:80]
+    if can_white:
+        store.branding.product_name = product_name.strip()[:80]
     store.branding.primary_color = primary_color.strip()[:30]
     store.branding.secondary_color = secondary_color.strip()[:30]
+    if can_theme:
+        tm = (theme_mode or 'dark').strip().lower()
+        if tm not in ('dark','light'):
+            tm = 'dark'
+        store.branding.theme_mode = tm
+        store.branding.bg_color = (bg_color or '#0b0f14').strip()[:30]
     store.branding.whatsapp_support = whatsapp_support.strip()[:40] or None
     # Optional logo upload (stored as data URL in DB)
-    if logo_file is not None:
+    if can_white and logo_file is not None:
         try:
             content = logo_file.file.read()
             if content and len(content) <= 1024 * 1024:  # 1MB
@@ -868,6 +979,8 @@ def settings_segment(
 ):
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Apenas admin.")
+    if not is_master(request):
+        raise HTTPException(status_code=403, detail="Acesso restrito ao suporte.")
     store = get_current_store(db, user)
     seg = (segment or "").strip().lower()
     if seg not in ("deposito", "delivery", "bar"):
@@ -892,6 +1005,8 @@ def settings_plan(
 ):
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Apenas admin.")
+    if not is_master(request):
+        raise HTTPException(status_code=403, detail="Acesso restrito ao suporte.")
     store = get_current_store(db, user)
     p = (plan or "").strip().lower()
     if p not in ("basic","pro","elite"):
@@ -911,13 +1026,23 @@ def settings_plan(
 
     # set feature bundles by plan
     bundle = {
-        "basic": {"reports_export": 0, "finance_module": 0, "multi_user": 0, "white_label": 0},
-        "pro":   {"reports_export": 1, "finance_module": 1, "multi_user": 1, "white_label": 0},
-        "elite": {"reports_export": 1, "finance_module": 1, "multi_user": 1, "white_label": 1},
+        "basic": {"reports_export": 0, "finance_module": 0, "multi_user": 0, "white_label": 0, "theme_custom": 0},
+        "pro":   {"reports_export": 1, "finance_module": 1, "multi_user": 1, "white_label": 0, "theme_custom": 1},
+        "elite": {"reports_export": 1, "finance_module": 1, "multi_user": 1, "white_label": 1, "theme_custom": 1},
     }[p]
     for f in store.features:
         if f.key in bundle:
             f.enabled = bundle[f.key]
     db.commit()
     return RedirectResponse("/settings?ok=plan", status_code=302)
+
+def has_feature(store: Store, key: str) -> bool:
+    try:
+        for f in (store.features or []):
+            if f.key == key:
+                return bool(int(f.enabled))
+    except Exception:
+        pass
+    return False
+
 

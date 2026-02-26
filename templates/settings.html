@@ -14,6 +14,18 @@
 
       <label>Cor secundária</label>
       <input type="color" name="secondary_color" value="{{ (branding.secondary_color if branding else '#9a7bff') }}">
+{% if features.get("theme_custom") %}
+    <label>Tema</label>
+    <select name="theme_mode" class="input">
+      <option value="dark" {% if branding and branding.theme_mode=="dark" %}selected{% endif %}>Escuro (Dark)</option>
+      <option value="light" {% if branding and branding.theme_mode=="light" %}selected{% endif %}>Claro (Light)</option>
+    </select>
+    <label>Cor de fundo</label>
+    <input class="input" type="color" name="bg_color" value="{{ branding.bg_color if branding and branding.bg_color else '#0b0f14' }}">
+    <div class="muted" style="margin-top:6px">Dica: escolha um fundo mais claro se tiver dificuldade de visão.</div>
+{% else %}
+<div class="muted" style="margin-top:10px">Tema (claro/escuro e fundo) disponível no plano PRO ou ELITE.</div>
+{% endif %}
 
       <label>WhatsApp do suporte (opcional)</label>
       <input name="whatsapp_support" value="{{ (branding.whatsapp_support if branding else '') }}" placeholder="Ex: 22999480023">
@@ -61,6 +73,13 @@
         Salvar
       </button>
     </form>
+{% else %}
+<div class="card" style="margin-top:12px">
+  <div class="h3">Plano e assinatura</div>
+  <div class="muted" style="margin-top:6px">Para ativar plano, renovar ou alterar assinatura, fale direto com o suporte.</div>
+  <a class="btn primary" style="margin-top:10px" href="https://wa.me/{{ (branding.whatsapp_support or '')|replace('+','')|replace(' ','') }}">Falar com suporte</a>
+</div>
+{% endif %}
   </div>
 
   <div class="card">

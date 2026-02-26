@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Império - Acesso do Suporte</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <div class="container" style="max-width:520px;margin:40px auto;">
+    <div class="card">
+      <div class="h3">Acesso do Suporte Império</div>
+      <div class="muted" style="margin-top:6px">Somente o proprietário/suporte pode alterar planos e assinaturas.</div>
+      {% if request.query_params.get('err') %}
+        <div class="toast err" style="margin-top:10px">Senha inválida.</div>
+      {% endif %}
+      <form method="post" action="/imperio-admin/login" style="margin-top:12px">
+        <label>Senha do suporte</label>
+        <input class="input" type="password" name="password" placeholder="Digite a senha do suporte" required>
+        <button class="btn primary" style="margin-top:12px;width:100%">Entrar</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

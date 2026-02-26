@@ -51,6 +51,9 @@ class StoreBranding(Base):
     logo_url = Column(String(500), nullable=True)
     primary_color = Column(String(30), default="#2f6bff", nullable=False)
     secondary_color = Column(String(30), default="#9a7bff", nullable=False)
+    # UI theme
+    theme_mode = Column(String(10), default="dark", nullable=False)  # dark | light
+    bg_color = Column(String(30), default="#0b0f14", nullable=False)
     whatsapp_support = Column(String(40), nullable=True)
     receipt_footer = Column(String(200), nullable=True)
 

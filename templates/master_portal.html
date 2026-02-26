@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Império - Painel do Suporte</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <div class="container" style="max-width:980px;margin:30px auto;">
+    <div class="row between" style="margin-bottom:12px">
+      <div>
+        <div class="h3">Painel do Suporte</div>
+        <div class="muted">Ative/renove planos e assinaturas com segurança.</div>
+      </div>
+      <a class="btn" href="/imperio-admin/logout">Sair</a>
+    </div>
+
+    {% if request.query_params.get('ok') %}
+      <div class="toast ok">Plano atualizado com sucesso.</div>
+    {% endif %}
+
+    <div class="card" style="margin-top:12px">
+      <div class="h3">Alterar plano de uma loja</div>
+      <form class="grid two" method="post" action="/imperio-admin/plan" style="margin-top:10px">
+        <div>
+          <label>Loja</label>
+          <select class="input" name="store_id" required>
+            {% for s in stores %}
+              <option value="{{ s.id }}">#{{ s.id }} — {{ s.name }} ({{ s.plan }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label>Plano</label>
+          <select class="input" name="plan" required>
+            <option value="basic">Start (R$ 89)</option>
+            <option value="pro">Pro (R$ 157)</option>
+            <option value="elite">Elite (R$ 197)</option>
+          </select>
+        </div>
+        <div>
+          <label>Status</label>
+          <select class="input" name="subscription_status">
+            <option value="active">Ativo</option>
+            <option value="trial">Teste</option>
+            <option value="past_due">Atrasado</option>
+            <option value="suspended">Suspenso</option>
+          </select>
+        </div>
+        <div>
+          <label>Válido até (YYYY-MM-DD)</label>
+          <input class="input" type="text" name="paid_until" placeholder="2026-12-31">
+        </div>
+        <div style="grid-column:1/-1">
+          <button class="btn primary" style="width:100%">Salvar</button>
+        </div>
+      </form>
+      <div class="muted" style="margin-top:10px">Dica: se quiser “mensal”, coloque a data de hoje + 30 dias.</div>
+    </div>
+  </div>
+</body>
+</html>

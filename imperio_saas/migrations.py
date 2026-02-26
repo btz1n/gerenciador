@@ -94,3 +94,8 @@ def seed_store_defaults(db: Session):
                 s.features.append(StoreFeature(key=k, enabled=1 if enabled else 0))
 
     db.commit()
+    # store_branding extras
+    ensure_column(conn, "store_branding", "theme_mode", "VARCHAR(10)", default="'dark'")
+    ensure_column(conn, "store_branding", "bg_color", "VARCHAR(30)", default="'#0b0f14'")
+
+

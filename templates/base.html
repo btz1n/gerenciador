@@ -13,6 +13,16 @@
     }
   </style>
   {% endif %}
+
+<style>
+:root{
+  --primary: {{ (branding.primary_color if branding else '#2f6bff') }};
+  --secondary: {{ (branding.secondary_color if branding else '#9a7bff') }};
+  --bg: {{ (branding.bg_color if branding else '#0b0f14') }};
+}
+body{ background: var(--bg); }
+</style>
+
 </head>
 <body>
 <div class="toast-container" id="toast_container">
