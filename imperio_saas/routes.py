@@ -90,7 +90,10 @@ FEATURE_META = {
 # PUBLIC
 # =========================
 @router.get("/", include_in_schema=False)
-def root():
+def root(request: Request):
+    # If already logged in, go straight to dashboard
+    if request.cookies.get("user_id") and request.cookies.get("store_id"):
+        return RedirectResponse("/dashboard", status_code=302)
     return RedirectResponse("/login", status_code=302)
 
 def _alloc_number(db: Session, store_id: int, kind: str) -> str:
