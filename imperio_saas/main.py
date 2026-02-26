@@ -26,11 +26,25 @@ def create_app() -> FastAPI:
         os.makedirs(STATIC_DIR, exist_ok=True)
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
+    @app.on_event("startup")
+    async def _startup():
+        # run lightweight schema/migration checks after worker starts
+        ensure_schema(engine)
+
+
     # Ensure schema on startup
-    ensure_schema(engine)
 
     # Routes
     app.include_router(router)
+
+    # Render health checks may use HEAD; respond with 200 instead of 405
+    @app.head("/")
+    async def _head_root():
+        return {}
+
+    @app.head("/dashboard")
+    async def _head_dashboard():
+        return {}
 
     # Exception handler for auth/subscription
     @app.exception_handler(HTTPException)
