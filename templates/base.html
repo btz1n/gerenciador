@@ -21,8 +21,19 @@
   --primary: {{ (branding.primary_color if branding else '#2f6bff') }};
   --secondary: {{ (branding.secondary_color if branding else '#9a7bff') }};
   --bg: {{ (branding.bg_color if branding else '#0b0f14') }};
+  {% if branding and branding.theme_mode == 'light' %}
+  --txt: #0f172a;
+  --mut: rgba(15, 23, 42, .70);
+  --card: rgba(255,255,255,.88);
+  --line: rgba(15, 23, 42, .12);
+  {% else %}
+  --txt: #ecf0ff;
+  --mut: rgba(236, 240, 255, .70);
+  --card: rgba(15, 18, 58, .75);
+  --line: rgba(255,255,255,.10);
+  {% endif %}
 }
-body{ background: var(--bg); }
+body{ background: var(--bg) !important; color: var(--txt) !important; }
 </style>
 
 </head>
@@ -90,7 +101,7 @@ body{ background: var(--bg); }
         {% if features.core_sales %}<a href="/sales">Vendas</a>{% endif %}
         {% if features.core_products %}<a href="/products">Produtos</a>{% endif %}
         {% if features.core_customers %}<a href="/customers">Clientes</a>{% endif %}
-        {% if user.role == "admin" %}<a href="/settings">Configurações</a>{% endif %}
+        {% if user.role == "admin" and features.get("theme_custom") %}<a href="/personalizacao">Personalização</a>{% endif %}
         <a href="/billing">Assinatura</a>
       </nav>
 

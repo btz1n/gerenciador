@@ -33,6 +33,16 @@ def is_master(request: Request) -> bool:
     except Exception:
         return False
 
+
+def master_key_ok(request: Request) -> bool:
+    """Optional extra gate: require a secret key to even reach the master login."""
+    key = os.getenv("IMPERIO_MASTER_KEY", "").strip()
+    if not key:
+        return False
+    q = (request.query_params.get("k") or "").strip()
+    return q == key
+
+
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 router = APIRouter()
@@ -69,7 +79,9 @@ def ensure_store_ready(db: Session, store: Store):
 # =========================
 @router.get("/imperio-admin/login", response_class=HTMLResponse)
 def master_login_page(request: Request):
-    # simple login screen for master
+    # Hidden master login: require secret key (k=...) unless already logged in
+    if not is_master(request) and not master_key_ok(request):
+        raise HTTPException(status_code=404, detail="Not found")
     return templates.TemplateResponse("master_login.html", {"request": request})
 
 @router.post("/imperio-admin/login")
@@ -82,12 +94,24 @@ def master_login(password: str = Form(""), request: Request = None):
     resp.set_cookie("imperio_master", "1", httponly=True, samesite="lax")
     return resp
 
+@router.get("/imperio-master/logout")
 @router.get("/imperio-admin/logout")
 def master_logout():
     resp = RedirectResponse("/", status_code=302)
     resp.delete_cookie("imperio_master")
     return resp
 
+@router.get("/suporte-portal")
+def suporte_portal_entry(request: Request):
+    """Hidden entry. Use /suporte-portal?k=IMPERIO_MASTER_KEY to set cookie and enter."""
+    if not master_key_ok(request):
+        raise HTTPException(status_code=404, detail="Not found")
+    resp = RedirectResponse("/imperio-admin", status_code=302)
+    resp.set_cookie("imperio_master", "1", httponly=True, samesite="lax")
+    return resp
+
+
+@router.get("/imperio-master", response_class=HTMLResponse)
 @router.get("/imperio-admin", response_class=HTMLResponse)
 def master_portal(request: Request, db: Session = Depends(get_db)):
     if not is_master(request):
@@ -95,6 +119,7 @@ def master_portal(request: Request, db: Session = Depends(get_db)):
     stores = db.query(Store).order_by(Store.id.desc()).limit(200).all()
     return templates.TemplateResponse("master_portal.html", {"request": request, "stores": stores, "PLAN_PRICES": PLAN_PRICES})
 
+@router.post("/imperio-master/plan")
 @router.post("/imperio-admin/plan")
 def master_set_plan(
     store_id: int = Form(...),
@@ -354,7 +379,7 @@ def billing_page(request: Request, db: Session = Depends(get_db)):
     message = "Faça o PIX e envie o comprovante no WhatsApp para liberar/renovar sua assinatura."
     data = ctx(request, db, user)
     data["is_master"] = is_master(request)
-    data.update({"title":"Assinatura", "kicker":"Assinatura", "page_title":"Ativar assinatura", "pix_key":pix, "prices":{"start":price_start,"pro":price_pro,"elite":price_elite}, "support":support, "message":message, "store_obj":store})
+    data.update({"title":"Assinatura", "kicker":"Assinatura", "page_title":"Ativar assinatura", "pix_key":pix, "prices":{"basic":price_start,"pro":price_pro,"elite":price_elite}, "support":support, "message":message, "store_obj":store, "plan_label": ("Start" if store and store.plan=="basic" else ("Pro" if store and store.plan=="pro" else ("Elite" if store and store.plan=="elite" else (store.plan if store else ""))))})
     return templates.TemplateResponse("billing.html", data)
 
 # =========================
@@ -913,18 +938,28 @@ def tab_close(
 # =========================
 @router.get("/settings", response_class=HTMLResponse)
 def settings_page(request: Request, user: SimpleUser = Depends(require_auth), db: Session = Depends(get_db)):
-    # Only admins
+    # Configurações "sensíveis" ficam no painel master (suporte).
+    if is_master(request):
+        return RedirectResponse("/imperio-master", status_code=302)
+    return RedirectResponse("/billing", status_code=302)
+
+
+@router.get("/personalizacao", response_class=HTMLResponse)
+def personalization_page(request: Request, user: SimpleUser = Depends(require_auth), db: Session = Depends(get_db)):
+    # Somente admin da loja
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Apenas admin.")
-    if not is_master(request):
-        return RedirectResponse("/billing?err=suporte", status_code=302)
     store = get_current_store(db, user)
+    # Pro+ only
+    if not has_feature(store, "theme_custom"):
+        return RedirectResponse("/billing?err=upgrade", status_code=302)
     data = ctx(request, db, user)
     data["is_master"] = is_master(request)
-    data.update({"kicker":"Admin", "page_title":"Configurações", "title":"Configurações"})
-    data["feature_meta"] = FEATURE_META
-    return templates.TemplateResponse("settings.html", data)
+    data.update({"title":"Personalização", "kicker":"Personalização", "page_title":"Personalização"})
+    return templates.TemplateResponse("personalizacao.html", data)
 
+
+@router.post("/personalizacao")
 @router.post("/settings/branding")
 def settings_branding(
     request: Request,
@@ -968,7 +1003,7 @@ def settings_branding(
             pass
 
     db.commit()
-    return RedirectResponse("/billing?ok=branding", status_code=302)
+    return RedirectResponse("/personalizacao?ok=1", status_code=302)
 
 
 @router.post("/settings/segment")
