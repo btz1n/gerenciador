@@ -48,7 +48,19 @@
   <div class="app">
     <aside class="sidebar" id="sidebar">
       <div class="brand">
-        <div class="logo"></div>
+        <div class="logo" style="
+  {% set _logo = None %}
+  {% if branding and branding.logo_url and features.get('white_label') %}
+    {% set _logo = branding.logo_url %}
+  {% endif %}
+  {% if not _logo %}
+    {% set _logo = '/static/img/imperio.png' %}
+  {% endif %}
+  background-image: url('{{ _logo }}');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+"></div>
         <div>
           <div class="brand-title">{{ (branding.product_name if branding else "IMPÉRIO") }}</div>
           <div class="brand-sub">{{ user.store_name }}</div>

@@ -7,7 +7,7 @@ from urllib.parse import quote
 import csv
 import io
 
-from fastapi import APIRouter, Request, Depends, Form, HTTPException
+from fastapi import APIRouter, Request, Depends, Form, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -21,6 +21,7 @@ from .security import hash_password, verify_password
 from .migrations import seed_store_defaults
 
 import os
+import base64
 
 PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMPLATES_DIR = os.path.join(PROJECT_DIR, "templates")
@@ -69,6 +70,21 @@ def ctx(request: Request, db: Session, user: Optional[SimpleUser]):
             for f in store.features:
                 features[f.key] = bool(int(f.enabled))
     return {"request": request, "user": user, "branding": branding, "segment": segment, "features": features, "plan": plan, "store": store}
+
+
+FEATURE_META = {
+    "core_dashboard": {"label": "Dashboard", "desc": "Visão geral do dia/mês, pedidos e indicadores."},
+    "core_products": {"label": "Produtos e Estoque", "desc": "Cadastro de produtos, preço, SKU e controle de estoque."},
+    "core_sales": {"label": "Vendas (PDV)", "desc": "Vendas rápidas com cálculo automático e baixa no estoque."},
+    "core_customers": {"label": "Clientes", "desc": "Cadastro de clientes para vendas e pedidos."},
+    "segment_orders": {"label": "Pedidos (Delivery/Depósito)", "desc": "Pedidos com status, finalizados e histórico."},
+    "segment_tables": {"label": "Mesas e Comandas (Bar)", "desc": "Comandas por mesa, consumo e fechamento em venda."},
+    "reports_export": {"label": "Exportação (CSV)", "desc": "Exportar vendas, pedidos e produtos para Excel (CSV)."},
+    "finance_module": {"label": "Financeiro", "desc": "Recursos de caixa/financeiro (quando habilitado)."},
+    "multi_user": {"label": "Múltiplos usuários", "desc": "Crie mais usuários e permissões (quando habilitado)."},
+    "white_label": {"label": "Personalização de marca", "desc": "Trocar nome, cores e logo do sistema (plano completo)."},
+}
+
 
 # =========================
 # PUBLIC
@@ -802,6 +818,7 @@ def settings_page(request: Request, user: SimpleUser = Depends(require_auth), db
     store = get_current_store(db, user)
     data = ctx(request, db, user)
     data.update({"kicker":"Admin", "page_title":"Configurações", "title":"Configurações"})
+    data["feature_meta"] = FEATURE_META
     return templates.TemplateResponse("settings.html", data)
 
 @router.post("/settings/branding")
@@ -811,6 +828,7 @@ def settings_branding(
     primary_color: str = Form("#2f6bff"),
     secondary_color: str = Form("#9a7bff"),
     whatsapp_support: str = Form(""),
+    logo_file: UploadFile | None = File(None),
     user: SimpleUser = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
@@ -823,6 +841,18 @@ def settings_branding(
     store.branding.primary_color = primary_color.strip()[:30]
     store.branding.secondary_color = secondary_color.strip()[:30]
     store.branding.whatsapp_support = whatsapp_support.strip()[:40] or None
+    # Optional logo upload (stored as data URL in DB)
+    if logo_file is not None:
+        try:
+            content = logo_file.file.read()
+            if content and len(content) <= 1024 * 1024:  # 1MB
+                ctype = (logo_file.content_type or "image/png").split(";")[0].strip()
+                if ctype.startswith("image/"):
+                    b64 = base64.b64encode(content).decode("ascii")
+                    store.branding.logo_url = f"data:{ctype};base64,{b64}"
+        except Exception:
+            pass
+
     db.commit()
     return RedirectResponse("/settings", status_code=302)
 
