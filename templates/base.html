@@ -21,23 +21,12 @@
   --primary: {{ (branding.primary_color if branding else '#2f6bff') }};
   --secondary: {{ (branding.secondary_color if branding else '#9a7bff') }};
   --bg: {{ (branding.bg_color if branding else '#0b0f14') }};
-  {% if branding and branding.theme_mode == 'light' %}
-  --txt: #0f172a;
-  --mut: rgba(15, 23, 42, .70);
-  --card: rgba(255,255,255,.88);
-  --line: rgba(15, 23, 42, .12);
-  {% else %}
-  --txt: #ecf0ff;
-  --mut: rgba(236, 240, 255, .70);
-  --card: rgba(15, 18, 58, .75);
-  --line: rgba(255,255,255,.10);
-  {% endif %}
 }
-body{ background: var(--bg) !important; color: var(--txt) !important; }
+body{ background: var(--bg); }
 </style>
 
 </head>
-<body>
+<body class="{% if branding and branding.theme_mode=='light' %}theme-light{% elif branding and branding.theme_mode=='soft' %}theme-soft{% else %}theme-dark{% endif %}" style="{% if branding %}--pri:{{ branding.primary_color }};--pri2:{{ branding.secondary_color }};--bg:{{ branding.bg_color }};{% endif %}">
 <div class="toast-container" id="toast_container">
   {% set ok = request.query_params.get('ok') %}
   {% set err = request.query_params.get('err') %}

@@ -1,5 +1,5 @@
 :root{
-  --bg:#06081f;
+  --bg:#0b0f14;
   --card: rgba(15, 18, 58, .75);
   --line: rgba(255,255,255,.10);
   --txt:#ecf0ff;
@@ -12,7 +12,7 @@
 body{
   margin:0;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
-  background: radial-gradient(1200px 800px at 20% 0%, #2a1e7a 0%, #06081f 55%, #040516 100%);
+  background: var(--bg);
   color:var(--txt);
 }
 
@@ -322,3 +322,24 @@ a:hover{ text-decoration:underline; }
 .pill{ font-size:12px; padding:6px 10px; border-radius:999px; border:1px solid var(--line); }
 .pill.on{ background:rgba(34,197,94,0.12); border-color:rgba(34,197,94,0.35); }
 .pill.off{ background:rgba(239,68,68,0.10); border-color:rgba(239,68,68,0.25); }
+
+
+body.theme-light{
+  --bg:#f4f6f9;
+  --card:#ffffff;
+  --line: rgba(0,0,0,.08);
+  --txt:#0f172a;
+  --mut:#475569;
+}
+body.theme-soft{
+  --bg:#151922;
+  --card: rgba(24, 28, 40, .92);
+  --line: rgba(255,255,255,.10);
+  --txt:#ecf0ff;
+  --mut:#a9b2e6;
+}
+.toast{ padding:10px 12px; border-radius:12px; margin:10px 0; border:1px solid var(--line); background: var(--card); }
+.toast.ok{ }
+.toast.err{ }
+.chip{ display:inline-flex; align-items:center; justify-content:center; padding:10px 12px; border-radius:12px; border:1px solid var(--line); background: var(--card); color:var(--txt); cursor:pointer; }
+.chip:hover{ opacity:.9; }

@@ -1,74 +1,58 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="grid two">
-  <div class="card">
-    <h3>Personalização</h3>
-    <p class="muted">Disponível para lojas no plano <b>PRO</b> ou <b>ELITE</b>. Ajuste o visual para ficar mais legível (claro) ou mais elegante (escuro).</p>
+<div class="card">
+  <h3>Personalização</h3>
+  <p class="muted">Disponível a partir do plano PRO. Aqui você escolhe tema, fundo e cores.</p>
 
-    {% if user and user.role == 'admin' %}
-    <form method="post" action="/personalizacao" class="form" enctype="multipart/form-data">
-      <label>Tema</label>
-      <select name="theme_mode" class="input">
-        <option value="dark" {% if branding and branding.theme_mode=="dark" %}selected{% endif %}>Dark (padrão)</option>
-        <option value="light" {% if branding and branding.theme_mode=="light" %}selected{% endif %}>Light (fundo claro)</option>
-      </select>
+  {% if ok %}
+    <div class="toast ok">Salvo com sucesso.</div>
+  {% endif %}
+  {% if err %}
+    <div class="toast err">{{ err }}</div>
+  {% endif %}
 
-      <label>Tom de fundo (rápido)</label>
-      <div class="row" style="gap:8px;flex-wrap:wrap">
-        <button type="button" class="chip" onclick="setBg('#0b0f14')">Dark Império</button>
-        <button type="button" class="chip" onclick="setBg('#151922')">Dark Soft</button>
-        <button type="button" class="chip" onclick="setBg('#f4f6f9')">Light Clean</button>
-        <button type="button" class="chip" onclick="setBg('#ffffff')">Branco</button>
-      </div>
+  <form method="post" action="/personalizacao" class="form" enctype="multipart/form-data">
+    <label>Tema</label>
+    <select class="input" name="theme_mode">
+      <option value="dark" {% if branding and branding.theme_mode=='dark' %}selected{% endif %}>Escuro (Dark)</option>
+      <option value="light" {% if branding and branding.theme_mode=='light' %}selected{% endif %}>Claro (Light)</option>
+      <option value="soft" {% if branding and branding.theme_mode=='soft' %}selected{% endif %}>Escuro Suave (Soft)</option>
+    </select>
 
-      <label>Cor de fundo (personalizada)</label>
-      <input class="input" type="color" id="bg_color" name="bg_color" value="{{ branding.bg_color if branding and branding.bg_color else '#0b0f14' }}">
+    <label>Fundo</label>
+    <div class="grid3">
+      <button class="chip" type="button" onclick="setBg('#0b0f14')">Dark Império</button>
+      <button class="chip" type="button" onclick="setBg('#151922')">Dark Suave</button>
+      <button class="chip" type="button" onclick="setBg('#f4f6f9')">Light Clean</button>
+    </div>
+    <input class="input" id="bg_color" type="color" name="bg_color" value="{{ branding.bg_color if branding and branding.bg_color else '#0b0f14' }}">
 
-      <label>Cor primária (botões)</label>
-      <input type="color" name="primary_color" value="{{ (branding.primary_color if branding else '#2f6bff') }}">
+    <label>Cor primária (botões)</label>
+    <input class="input" type="color" name="primary_color" value="{{ branding.primary_color if branding and branding.primary_color else '#2f6bff' }}">
 
-      <label>Cor secundária</label>
-      <input type="color" name="secondary_color" value="{{ (branding.secondary_color if branding else '#9a7bff') }}">
+    <label>Cor secundária</label>
+    <input class="input" type="color" name="secondary_color" value="{{ branding.secondary_color if branding and branding.secondary_color else '#9a7bff' }}">
 
-      {% if features.get('white_label') %}
-        <label>Nome do sistema (ELITE)</label>
-        <input name="product_name" value="{{ (branding.product_name if branding else 'IMPÉRIO') }}" required>
+    <label>WhatsApp do suporte (opcional)</label>
+    <input class="input" name="whatsapp_support" value="{{ branding.whatsapp_support if branding and branding.whatsapp_support else '' }}" placeholder="Ex: 22999480023">
 
-        <label>Logo (ELITE)</label>
-        <input class="input" type="file" name="logo_file" accept="image/*">
-        <div class="muted" style="margin-top:6px">Recomendado: PNG com fundo transparente.</div>
-      {% else %}
-        <div class="muted" style="margin-top:10px">No plano <b>ELITE</b> você pode trocar o nome e a logo.</div>
-      {% endif %}
+    {% if features.get('white_label') %}
+      <label>Nome do sistema (ELITE)</label>
+      <input class="input" name="product_name" value="{{ branding.product_name if branding and branding.product_name else 'IMPÉRIO' }}">
 
-      <label>WhatsApp do suporte (opcional)</label>
-      <input name="whatsapp_support" value="{{ (branding.whatsapp_support if branding else '') }}" placeholder="Ex: 22999480023">
-
-      <div style="height:10px"></div>
-      <button class="btn primary" type="submit">Salvar</button>
-    </form>
-    {% else %}
-      <div class="muted">Somente o admin da loja pode personalizar.</div>
+      <label>Logo (ELITE)</label>
+      <input class="input" type="file" name="logo_file" accept="image/*">
+      <div class="muted" style="margin-top:6px;">Recomendado: PNG com fundo transparente.</div>
     {% endif %}
-  </div>
 
-  <div class="card">
-    <h3>Dicas rápidas</h3>
-    <ul class="muted" style="line-height:1.8">
-      <li><b>Light Clean</b> é melhor para leitura e para quem tem dificuldade de visão.</li>
-      <li><b>Dark Soft</b> reduz o “azulão” e fica mais elegante.</li>
-      <li>Se algo ficar difícil de ler, aumente o contraste (cor primária) e use fundo mais claro.</li>
-    </ul>
-
-    <div style="height:12px"></div>
-    <a class="btn" href="/billing">Ver assinatura</a>
-  </div>
+    <div style="height:10px"></div>
+    <button class="btn primary" type="submit">Salvar</button>
+  </form>
 </div>
 
 <script>
-function setBg(v){
-  var el = document.getElementById('bg_color');
-  if(el){ el.value = v; }
+function setBg(hex){
+  document.getElementById('bg_color').value = hex;
 }
 </script>
 {% endblock %}

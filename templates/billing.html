@@ -1,61 +1,54 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="grid two">
-  <div class="card">
-    <h3>Assinatura</h3>
-    <p class="muted">Aqui você vê o plano atual. Para melhorar o plano, fale com o suporte.</p>
+<div class="card">
+  <h3>Assinatura</h3>
+  <p class="muted">Aqui você vê seu plano atual. Para mudar de plano, fale com o suporte.</p>
 
+  {% if store_obj %}
     <div class="grid3" style="margin-top:12px;">
       <div class="card" style="margin:0;">
-        <div class="h3">Start</div>
-        <div class="big">R$ {{ prices.basic }}</div>
-        <div class="muted">por mês</div>
+        <div class="muted">Plano atual</div>
+        <div class="h3">{{ store_obj.plan|upper }}</div>
       </div>
       <div class="card" style="margin:0;">
-        <div class="h3">Pro</div>
-        <div class="big">R$ {{ prices.pro }}</div>
-        <div class="muted">por mês</div>
+        <div class="muted">Status</div>
+        <div class="h3">{{ store_obj.subscription_status|upper }}</div>
       </div>
       <div class="card" style="margin:0;">
-        <div class="h3">Elite</div>
-        <div class="big">R$ {{ prices.elite }}</div>
-        <div class="muted">por mês</div>
+        <div class="muted">Válido até</div>
+        <div class="h3">{% if store_obj.paid_until %}{{ store_obj.paid_until.strftime("%d/%m/%Y") }}{% else %}-{% endif %}</div>
       </div>
     </div>
+  {% else %}
+    <div class="muted" style="margin-top:10px;">Faça login para ver o plano da sua loja.</div>
+  {% endif %}
 
-    {% if pix_key %}
-    <div style="height:12px;"></div>
-    <div class="kv">
-      <div class="k">PIX (chave)</div>
-      <div class="v code">{{ pix_key }}</div>
+  <div style="height:14px;"></div>
+
+  <div class="grid3">
+    <div class="card" style="margin:0;">
+      <div class="h3">BASIC</div>
+      <div class="big">R$ {{ prices.basic }}</div>
+      <div class="muted">por mês</div>
     </div>
-    {% endif %}
-
-    <div style="height:12px;"></div>
-    {% if support %}
-      <a class="btn primary" target="_blank" href="https://wa.me/55{{ support|replace(' ','')|replace('-','')|replace('(','')|replace(')','') }}">Melhorar plano / Falar com o suporte</a>
-    {% else %}
-      <div class="muted">Suporte: consulte o responsável pela sua implantação.</div>
-    {% endif %}
+    <div class="card" style="margin:0;">
+      <div class="h3">PRO</div>
+      <div class="big">R$ {{ prices.pro }}</div>
+      <div class="muted">por mês</div>
+    </div>
+    <div class="card" style="margin:0;">
+      <div class="h3">ELITE</div>
+      <div class="big">R$ {{ prices.elite }}</div>
+      <div class="muted">por mês</div>
+    </div>
   </div>
 
-  <div class="card">
-    <h3>Status da sua loja</h3>
+  <div style="height:14px;"></div>
 
-    {% if store_obj %}
-      <div class="kv"><div class="k">Loja</div><div class="v"><b>{{ store_obj.name }}</b></div></div>
-      <div class="kv"><div class="k">Plano atual</div><div class="v">{{ plan_label }}</div></div>
-      <div class="kv"><div class="k">Status</div><div class="v">{{ store_obj.subscription_status }}</div></div>
-      <div class="kv"><div class="k">Válido até</div><div class="v">{{ store_obj.paid_until }}</div></div>
-
-      {% if features.get("theme_custom") and user and user.role=="admin" %}
-        <div style="height:12px;"></div>
-        <a class="btn" href="/personalizacao">Abrir Personalização (PRO+)</a>
-      {% endif %}
-
-    {% else %}
-      <div class="muted">Entre na sua conta para ver o status da sua loja.</div>
-    {% endif %}
-  </div>
+  {% if support %}
+    <a class="btn primary" target="_blank" href="https://wa.me/55{{ support }}?text=Oi%20Suporte%20Imp%C3%A9rio!%20Quero%20melhorar%20meu%20plano.">Melhorar plano (WhatsApp)</a>
+  {% else %}
+    <div class="muted">Suporte não configurado.</div>
+  {% endif %}
 </div>
 {% endblock %}
