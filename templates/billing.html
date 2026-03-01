@@ -57,6 +57,63 @@
 <div class="card" style="margin-top:14px">
   <h3>Personalização da loja</h3>
   <p class="muted">Disponível no PRO e ELITE. Troca de logo disponível apenas no ELITE.</p>
+  <div class="muted" style="margin-top:10px">Escolha um estilo pronto (recomendado):</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:10px">
+    <button type="button" class="card preset" data-theme="dark" data-bg="#0b0f14" data-primary="#2f6bff" data-secondary="#9a7bff" style="text-align:left;cursor:pointer">
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="width:22px;height:22px;border-radius:6px;background:#0b0f14;border:1px solid rgba(255,255,255,.15)"></div>
+        <div>
+          <div style="font-weight:700">Dark Império</div>
+          <div class="muted">Padrão (alto contraste)</div>
+        </div>
+      </div>
+    </button>
+
+    <button type="button" class="card preset" data-theme="light" data-bg="#f4f6f9" data-primary="#1f6feb" data-secondary="#7c3aed" style="text-align:left;cursor:pointer">
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="width:22px;height:22px;border-radius:6px;background:#f4f6f9;border:1px solid rgba(0,0,0,.12)"></div>
+        <div>
+          <div style="font-weight:700">Light Clean</div>
+          <div class="muted">Mais claro (visão)</div>
+        </div>
+      </div>
+    </button>
+
+    <button type="button" class="card preset" data-theme="dark" data-bg="#151922" data-primary="#22c55e" data-secondary="#06b6d4" style="text-align:left;cursor:pointer">
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="width:22px;height:22px;border-radius:6px;background:#151922;border:1px solid rgba(255,255,255,.15)"></div>
+        <div>
+          <div style="font-weight:700">Dark Soft</div>
+          <div class="muted">Menos “azulão”</div>
+        </div>
+      </div>
+    </button>
+  </div>
+
+  <script>
+    (function(){
+      function $(sel){ return document.querySelector(sel); }
+      function applyPreset(btn){
+        var theme = btn.getAttribute('data-theme');
+        var bg = btn.getAttribute('data-bg');
+        var p = btn.getAttribute('data-primary');
+        var s = btn.getAttribute('data-secondary');
+        var themeSel = $('select[name="theme_mode"]');
+        var bgInp = $('input[name="bg_color"]');
+        var pInp = $('input[name="primary_color"]');
+        var sInp = $('input[name="secondary_color"]');
+        if(themeSel) themeSel.value = theme;
+        if(bgInp) bgInp.value = bg;
+        if(pInp) pInp.value = p;
+        if(sInp) sInp.value = s;
+      }
+      document.addEventListener('click', function(e){
+        var btn = e.target.closest && e.target.closest('.preset');
+        if(btn){ e.preventDefault(); applyPreset(btn); }
+      });
+    })();
+  </script>
+
 
   {% if user and user.role == 'admin' %}
   <form method="post" action="/personalizacao" class="form" enctype="multipart/form-data">
