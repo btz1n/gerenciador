@@ -347,9 +347,9 @@ def billing_page(request: Request, db: Session = Depends(get_db)):
                 user = SimpleUser(id=u.id, store_id=u.store_id, username=u.username, store_name=store.name, role=u.role, segment=store.segment, plan=store.plan)
 
     pix = os.getenv("PIX_KEY", "")
-    price_start = os.getenv("PRICE_START", "89,00")
-    price_pro = os.getenv("PRICE_PRO", "157,00")
-    price_elite = os.getenv("PRICE_ELITE", "198,00")
+    price_start = f"{PRICES['basic']},00"
+    price_pro = f"{PRICES['pro']},00"
+    price_elite = f"{PRICES['elite']},00"
     support = os.getenv("SUPPORT_WHATSAPP", "")
     message = "Faça o PIX e envie o comprovante no WhatsApp para liberar/renovar sua assinatura."
     data = ctx(request, db, user)
