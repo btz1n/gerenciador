@@ -26,7 +26,7 @@ body{ background: var(--bg); }
 </style>
 
 </head>
-<body class="{% if branding and branding.theme_mode=='light' %}theme-light{% elif branding and branding.theme_mode=='soft' %}theme-soft{% else %}theme-dark{% endif %}" style="{% if branding %}--pri:{{ branding.primary_color }};--pri2:{{ branding.secondary_color }};--bg:{{ branding.bg_color }};{% endif %}">
+<body>
 <div class="toast-container" id="toast_container">
   {% set ok = request.query_params.get('ok') %}
   {% set err = request.query_params.get('err') %}
@@ -90,7 +90,7 @@ body{ background: var(--bg); }
         {% if features.core_sales %}<a href="/sales">Vendas</a>{% endif %}
         {% if features.core_products %}<a href="/products">Produtos</a>{% endif %}
         {% if features.core_customers %}<a href="/customers">Clientes</a>{% endif %}
-        {% if user.role == "admin" and features.get("theme_custom") %}<a href="/personalizacao">Personalização</a>{% endif %}
+        {% if user.role == "admin" %}<a href="/settings">Configurações</a>{% endif %}
         <a href="/billing">Assinatura</a>
       </nav>
 
