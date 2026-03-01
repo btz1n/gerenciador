@@ -92,6 +92,8 @@ body{ background: var(--bg); }
         {% if features.core_customers %}<a href="/customers">Clientes</a>{% endif %}
         {% if user.role == "admin" %}<a href="/settings">Configurações</a>{% endif %}
         <a href="/billing">Assinatura</a>
+        {% if features.theme_custom %}<a href="/personalizacao">Personalização</a>{% endif %}
+{% endif %}
       </nav>
 
       <div class="sidebar-footer">
@@ -133,6 +135,7 @@ body{ background: var(--bg); }
       });
     })();
   </script>
+
 
 {% else %}
   <div class="public-wrap">

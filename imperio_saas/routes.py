@@ -279,6 +279,7 @@ def admin_setup_page(request: Request):
 
 @router.post("/setup")
 @router.post("/admin/setup")
+@router.post("/dono/setup")
 def admin_setup_action(
     request: Request,
     store_name: str = Form(...),
@@ -1044,5 +1045,4 @@ def has_feature(store: Store, key: str) -> bool:
     except Exception:
         pass
     return False
-
 
