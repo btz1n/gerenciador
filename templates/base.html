@@ -92,7 +92,7 @@ body{ background: var(--bg); }
         {% if features.core_customers %}<a href="/customers">Clientes</a>{% endif %}
         {% if user.role == "admin" %}<a href="/settings">Configurações</a>{% endif %}
         <a href="/billing">Assinatura</a>
-          {% if features.get("theme_custom") %}
+          {% if plan in ["pro","elite"] %}
   <a href="/personalizacao">Personalização</a>
 {% endif %}
       </nav>

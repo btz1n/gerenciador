@@ -363,6 +363,13 @@ def logout():
 
 # ---------- PUBLIC: ADMIN SETUP ----------
 @router.get("/setup", response_class=HTMLResponse)
+
+
+@router.get("/dono/setup")
+def dono_setup_page(request: Request, db: Session = Depends(get_db), user: SimpleUser = Depends(require_auth)):
+    # Backwards-compatible alias: some templates/clients use /dono/setup
+    return RedirectResponse("/setup", status_code=302)
+
 @router.get("/admin/setup", response_class=HTMLResponse)
 def admin_setup_page(request: Request):
     return templates.TemplateResponse("setup.html", {"request": request, "user": None, "title": "Criar Loja"})
