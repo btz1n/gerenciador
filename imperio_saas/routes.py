@@ -62,6 +62,7 @@ def ensure_store_ready(db: Session, store: Store):
     store.ensure_trial()
     db.commit()
     seed_store_defaults(db)
+    sync_store_features(db, store)
 
 
 # =========================
@@ -78,6 +79,17 @@ def master_login(password: str = Form(""), request: Request = None):
     if not key or password.strip() != key:
         resp = RedirectResponse("/imperio-admin/login?err=1", status_code=302)
         return resp
+    resp = RedirectResponse("/imperio-admin", status_code=302)
+    resp.set_cookie("imperio_master", "1", httponly=True, samesite="lax")
+    return resp
+
+
+@router.get("/suporte-portal")
+def suporte_portal(request: Request, k: str = ""):
+    """Compat: old support portal URL. If key matches, log master in."""
+    key = os.getenv("IMPERIO_MASTER_KEY", "").strip()
+    if not key or (k or "").strip() != key:
+        return RedirectResponse("/imperio-admin/login?err=1", status_code=302)
     resp = RedirectResponse("/imperio-admin", status_code=302)
     resp.set_cookie("imperio_master", "1", httponly=True, samesite="lax")
     return resp
@@ -147,11 +159,22 @@ def ctx(request: Request, db: Session, user: Optional[SimpleUser]):
     if user:
         store = db.query(Store).filter(Store.id == user.store_id).first()
         if store:
+            # Always keep features synced to plan (safe auto-upgrades)
+            try:
+                sync_store_features(db, store)
+            except Exception:
+                pass
             branding = store.branding
             segment = store.segment
             plan = store.plan
+            # Build enabled map from DB
             for f in store.features:
                 features[f.key] = bool(int(f.enabled))
+            # Safety fallback: if a feature row is missing, derive from plan
+            derived = _feature_defaults_for_plan(plan or "basic")
+            for k, v in derived.items():
+                if k not in features and v:
+                    features[k] = True
     return {"request": request, "user": user, "branding": branding, "segment": segment, "features": features, "plan": plan, "store": store}
 
 
@@ -171,6 +194,73 @@ FEATURE_META = {
     "theme_custom": {"label": "Tema (claro/escuro e fundo)", "desc": "Escolha tema claro/escuro e cor de fundo.", "plan": "pro"},
     "white_label": {"label": "Personalização de marca", "desc": "Trocar nome, cores e logo do sistema (plano completo)."},
 }
+
+
+# =========================
+# Plan -> Features sync (safety)
+# =========================
+PLAN_FEATURES = {
+    "basic": {
+        # core
+        "core_products": True,
+        "core_sales": True,
+        "core_customers": True,
+        "core_dashboard": True,
+        # segments (enabled by default, behavior depends on segment)
+        "segment_orders": True,
+        "segment_tables": False,
+        # premium
+        "reports_export": False,
+        "finance_module": False,
+        "multi_user": False,
+        "theme_custom": False,
+        "white_label": False,
+    },
+    "pro": {
+        # inherit basic + upgrades
+        "reports_export": True,
+        "multi_user": True,
+        "theme_custom": True,
+    },
+    "elite": {
+        "reports_export": True,
+        "multi_user": True,
+        "theme_custom": True,
+        "white_label": True,
+        "finance_module": True,
+    },
+}
+
+def _feature_defaults_for_plan(plan: str) -> dict:
+    p = (plan or "basic").strip().lower()
+    base = dict(PLAN_FEATURES["basic"])
+    if p in ("pro", "elite"):
+        base.update(PLAN_FEATURES["pro"])
+    if p == "elite":
+        base.update(PLAN_FEATURES["elite"])
+    return base
+
+def sync_store_features(db: Session, store: Store) -> None:
+    """Make sure store_features rows exist and reflect the current plan.
+    This prevents 'feature not showing' issues when a store was created before new features existed.
+    """
+    if not store:
+        return
+    want = _feature_defaults_for_plan(store.plan or "basic")
+    existing = {f.key: f for f in (store.features or [])}
+    changed = False
+    for k, enabled in want.items():
+        if k not in existing:
+            store.features.append(StoreFeature(key=k, enabled=1 if enabled else 0))
+            changed = True
+        else:
+            # Only auto-upgrade when plan requires; never auto-disable features here
+            if enabled and int(existing[k].enabled or 0) == 0:
+                existing[k].enabled = 1
+                changed = True
+    if changed:
+        db.add(store)
+        db.commit()
 
 
 # =========================
@@ -323,6 +413,7 @@ def admin_setup_action(
 
     # default features seeded
     seed_store_defaults(db)
+    sync_store_features(db, store)
 
     user = User(store_id=store.id, username=username, password_hash=hash_password(password), role="admin")
     db.add(user)
@@ -357,6 +448,84 @@ def billing_page(request: Request, db: Session = Depends(get_db)):
     data["is_master"] = is_master(request)
     data.update({"title":"Assinatura", "kicker":"Assinatura", "page_title":"Ativar assinatura", "pix_key":pix, "prices":{"start":price_start,"pro":price_pro,"elite":price_elite}, "support":support, "message":message, "store_obj":store})
     return templates.TemplateResponse("billing.html", data)
+
+
+# =========================
+# PERSONALIZAÇÃO (PRO / ELITE)
+# =========================
+@router.get("/personalizacao", response_class=HTMLResponse)
+def personalizacao_page(request: Request, user: SimpleUser = Depends(require_auth), db: Session = Depends(get_db)):
+    require_feature(db, user.store_id, "theme_custom")
+    if user.role != "admin":
+        return RedirectResponse("/billing?err=Somente%20o%20admin%20pode%20personalizar", status_code=302)
+    data = ctx(request, db, user)
+    data["is_master"] = is_master(request)
+    data.update({"title":"Personalização", "kicker":"Assinatura", "page_title":"Personalização", "store_obj": data.get("store")})
+    return templates.TemplateResponse("personalizacao.html", data)
+
+@router.post("/personalizacao")
+async def personalizacao_action(
+    request: Request,
+    theme_mode: str = Form("dark"),
+    bg_color: str = Form("#0b0f14"),
+    primary_color: str = Form("#2f6bff"),
+    secondary_color: str = Form("#9a7bff"),
+    product_name: str = Form(""),
+    whatsapp_support: str = Form(""),
+    receipt_footer: str = Form(""),
+    logo: UploadFile | None = File(None),
+    user: SimpleUser = Depends(require_auth),
+    db: Session = Depends(get_db),
+):
+    require_feature(db, user.store_id, "theme_custom")
+    if user.role != "admin":
+        return RedirectResponse("/billing?err=Somente%20o%20admin%20pode%20personalizar", status_code=302)
+
+    store = db.query(Store).filter(Store.id == user.store_id).first()
+    if not store:
+        return RedirectResponse("/billing?err=Loja%20n%C3%A3o%20encontrada", status_code=302)
+
+    if not store.branding:
+        store.branding = StoreBranding(
+            product_name="IMPÉRIO",
+            primary_color="#2f6bff",
+            secondary_color="#9a7bff",
+            theme_mode="dark",
+            bg_color="#0b0f14",
+        )
+
+    b = store.branding
+    b.theme_mode = (theme_mode or "dark")[:10]
+    b.bg_color = (bg_color or "#0b0f14")[:30]
+    b.primary_color = (primary_color or "#2f6bff")[:30]
+    b.secondary_color = (secondary_color or "#9a7bff")[:30]
+    if product_name.strip():
+        b.product_name = product_name.strip()[:80]
+    b.whatsapp_support = (whatsapp_support.strip() or None)
+    b.receipt_footer = (receipt_footer.strip() or None)
+
+    # logo upload only in ELITE (white_label)
+    can_logo = (store.plan or "").lower() == "elite"
+    if logo and logo.filename:
+        if not can_logo:
+            return RedirectResponse("/billing?err=Troca%20de%20logo%20apenas%20no%20ELITE", status_code=302)
+        raw = await logo.read()
+        if len(raw) > 2_000_000:
+            return RedirectResponse("/billing?err=Logo%20muito%20grande", status_code=302)
+        # accept png/jpg/webp
+        fname = (logo.filename or "").lower()
+        if not (fname.endswith(".png") or fname.endswith(".jpg") or fname.endswith(".jpeg") or fname.endswith(".webp")):
+            return RedirectResponse("/billing?err=Formato%20de%20logo%20inv%C3%A1lido", status_code=302)
+        uploads_dir = os.path.join(PROJECT_DIR, "static", "uploads")
+        os.makedirs(uploads_dir, exist_ok=True)
+        out_path = os.path.join(uploads_dir, f"store_{store.id}.png")
+        with open(out_path, "wb") as f:
+            f.write(raw)
+        b.logo_url = f"/static/uploads/store_{store.id}.png"
+
+    db.add(store)
+    db.commit()
+    return RedirectResponse("/billing?ok=1", status_code=302)
 
 # =========================
 # DASHBOARD
@@ -1045,4 +1214,3 @@ def has_feature(store: Store, key: str) -> bool:
     except Exception:
         pass
     return False
-
